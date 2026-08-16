@@ -1,0 +1,41 @@
+server:
+  port: 8088
+
+spring:
+  application:
+    name: local-ai-assistant
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+
+assistant:
+  ollama:
+    base-url: http://localhost:11434
+    chat-model: llama3.2       # small + fast on CPU-only machines; try qwen2.5:7b or llama3.1:8b for better quality
+    temperature: 0.3
+    timeout-seconds: 300
+
+  rag:
+    docs-path: ./data/docs
+    code-path: ./src/main/java   # defaults to THIS project's own source — ask the assistant about its own code out of the box
+    store-path: ./data/store
+    chunk-size: 500
+    chunk-overlap: 50
+    max-results: 5
+    min-score: 0.6
+
+  files:
+    # Tool calls (read_file / list_files) are sandboxed to this directory - no path traversal outside it.
+    allowed-root: .
+
+  voice:
+    enabled: false                              # flip to true after running scripts/setup_voice.sh
+    whisper-binary: ./tools/whisper/main
+    whisper-model: ./tools/whisper/models/ggml-base.en.bin
+    piper-binary: ./tools/piper/piper
+    piper-model: ./tools/piper/voices/en_US-lessac-medium.onnx
+
+logging:
+  level:
+    com.pankaj.localai: INFO

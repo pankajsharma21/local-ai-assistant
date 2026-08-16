@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Local AI Assistant</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #161922; --border: #262b38; --text: #e8eaf0; --muted: #8b93a7;
+    --accent: #5b8cff; --user-bubble: #24304a; --bot-bubble: #1d2130; --ok: #4ade80; --bad: #f87171;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f5f6f9; --panel: #ffffff; --border: #e2e5ec; --text: #1a1d29; --muted: #6b7280;
+      --accent: #3b6fe0; --user-bubble: #dde6ff; --bot-bubble: #f0f1f5; --ok: #16a34a; --bad: #dc2626;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column;
+  }
+  header {
+    padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  header .dot.ok { background: var(--ok); }
+  header .dot.bad { background: var(--bad); }
+  header .status { font-size: 12px; color: var(--muted); }
+  .layout { flex: 1; display: flex; overflow: hidden; }
+  .sidebar {
+    width: 260px; border-right: 1px solid var(--border); padding: 16px; overflow-y: auto; flex-shrink: 0;
+  }
+  .sidebar h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 8px; }
+  .sidebar button {
+    width: 100%; margin-bottom: 8px; padding: 9px 10px; background: var(--panel); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; cursor: pointer; font-size: 13px; text-align: left;
+  }
+  .sidebar button:hover { border-color: var(--accent); }
+  .sidebar .hint { font-size: 12px; color: var(--muted); margin: 4px 0 18px; line-height: 1.5; }
+  main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .msg { max-width: 70%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+  .msg.user { align-self: flex-end; background: var(--user-bubble); }
+  .msg.bot { align-self: flex-start; background: var(--bot-bubble); border: 1px solid var(--border); }
+  .msg .role { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  form#composer {
+    display: flex; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--border);
+  }
+  #input {
+    flex: 1; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); font-size: 14px;
+  }
+  #input:focus { outline: none; border-color: var(--accent); }
+  button.send, #mic {
+    padding: 0 18px; border-radius: 10px; border: none; background: var(--accent); color: white;
+    font-size: 14px; cursor: pointer;
+  }
+  #mic { padding: 0 14px; background: var(--panel); border: 1px solid var(--border); color: var(--text); }
+  #mic.recording { background: var(--bad); color: white; }
+  .empty { color: var(--muted); font-size: 13px; text-align: center; margin-top: 40px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🖥️ Local AI Assistant</h1>
+  <div class="dot" id="statusDot"></div>
+  <div class="status" id="statusText">checking...</div>
+</header>
+<div class="layout">
+  <aside class="sidebar">
+    <h2>Knowledge</h2>
+    <button id="ingestDocs">📄 Ingest docs (./data/docs)</button>
+    <button id="ingestCode">💻 Ingest code (./data/code)</button>
+    <div class="hint">Drop PDFs/notes into <code>data/docs</code> or point <code>assistant.rag.code-path</code> at a repo, then click ingest. Ask about them below — the model picks the right tool itself.</div>
+
+    <h2>Session</h2>
+    <button id="resetSession">🔄 New conversation</button>
+    <div class="hint">Session id: <span id="sessionIdLabel"></span></div>
+
+    <h2>Voice</h2>
+    <div class="hint" id="voiceHint">checking voice status...</div>
+  </aside>
+  <main>
+    <div id="chat"><div class="empty">Ask anything — general knowledge, your documents, or your code.</div></div>
+    <form id="composer">
+      <button type="button" id="mic" title="Voice input">🎤</button>
+      <input id="input" autocomplete="off" placeholder="Ask something..." />
+      <button class="send" type="submit">Send</button>
+    </form>
+  </main>
+</div>
+<script>
+const sessionId = crypto.randomUUID();
+document.getElementById('sessionIdLabel').textContent = sessionId.slice(0, 8);
+
+const chat = document.getElementById('chat');
+function addMessage(role, text) {
+  document.querySelector('.empty')?.remove();
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = `<span class="role">${role === 'user' ? 'You' : 'Assistant'}</span>` + escapeHtml(text);
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+document.getElementById('composer').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = document.getElementById('input');
+  const message = input.value.trim();
+  if (!message) return;
+  addMessage('user', message);
+  input.value = '';
+  addMessage('bot', '…thinking (local model, first token can take a few seconds)…');
+  const thinkingEl = chat.lastElementChild;
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ sessionId, message })
+    });
+    const data = await res.json();
+    thinkingEl.remove();
+    addMessage('bot', data.reply ?? JSON.stringify(data));
+  } catch (err) {
+    thinkingEl.remove();
+    addMessage('bot', 'Error: ' + err.message);
+  }
+});
+
+document.getElementById('ingestDocs').addEventListener('click', () => runIngest('/api/ingest/docs', 'docs'));
+document.getElementById('ingestCode').addEventListener('click', () => runIngest('/api/ingest/code', 'code'));
+async function runIngest(url, label) {
+  const btn = label === 'docs' ? document.getElementById('ingestDocs') : document.getElementById('ingestCode');
+  const original = btn.textContent;
+  btn.textContent = 'Ingesting...'; btn.disabled = true;
+  try {
+    const res = await fetch(url, { method: 'POST' });
+    const data = await res.json();
+    addMessage('bot', `Ingested ${data.filesIngested} ${label} file(s).`);
+  } catch (err) {
+    addMessage('bot', 'Ingest error: ' + err.message);
+  } finally {
+    btn.textContent = original; btn.disabled = false;
+  }
+}
+
+document.getElementById('resetSession').addEventListener('click', () => location.reload());
+
+async function checkHealth() {
+  const dot = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  try {
+    const res = await fetch('/api/health');
+    const data = await res.json();
+    dot.className = 'dot ' + (data.ollamaReachable ? 'ok' : 'bad');
+    text.textContent = data.ollamaReachable
+      ? `Ollama reachable · model: ${data.chatModel}`
+      : `Ollama NOT reachable — is 'ollama serve' running?`;
+    document.getElementById('voiceHint').textContent = data.voice;
+  } catch {
+    dot.className = 'dot bad';
+    text.textContent = 'Backend not reachable';
+  }
+}
+checkHealth();
+setInterval(checkHealth, 15000);
+
+// --- Voice input (MediaRecorder -> /api/voice/transcribe) ---
+let mediaRecorder, chunks = [];
+const micBtn = document.getElementById('mic');
+micBtn.addEventListener('click', async () => {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    chunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+      micBtn.classList.remove('recording');
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const form = new FormData();
+      form.append('audio', blob, 'input.webm');
+      addMessage('bot', '…transcribing voice input…');
+      const placeholder = chat.lastElementChild;
+      try {
+        const res = await fetch('/api/voice/transcribe', { method: 'POST', body: form });
+        const data = await res.json();
+        placeholder.remove();
+        if (data.error) { addMessage('bot', 'Voice error: ' + data.error); return; }
+        document.getElementById('input').value = data.text;
+      } catch (err) {
+        placeholder.remove();
+        addMessage('bot', 'Voice error: ' + err.message);
+      }
+    };
+    mediaRecorder.start();
+    micBtn.classList.add('recording');
+  } catch (err) {
+    addMessage('bot', 'Microphone error: ' + err.message);
+  }
+});
+</script>
+</body>
+</html>
