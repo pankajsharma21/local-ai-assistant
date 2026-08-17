@@ -9,7 +9,7 @@ if ! command -v "$OLLAMA_BIN" >/dev/null 2>&1 && [ -x "$HOME/.local/ollama/bin/o
   OLLAMA_BIN="$HOME/.local/ollama/bin/ollama"
 fi
 
-MODEL="${1:-llama3.2}"
+MODEL="${1:-qwen2.5:7b}"
 echo "Pulling '$MODEL' via $OLLAMA_BIN (this can take a few minutes depending on model size)..."
 "$OLLAMA_BIN" pull "$MODEL"
 echo "Done. Set assistant.ollama.chat-model=$MODEL in application.yml if you didn't use the default."

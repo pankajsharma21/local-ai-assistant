@@ -24,8 +24,10 @@ run the model *and* the retrieval pipeline entirely on your own hardware.
 | 💬 **Chat** | General-purpose conversation with per-session memory |
 | 📄 **Document RAG** | Ask questions grounded in your own PDFs/notes/markdown — answers cite the source file |
 | 💻 **Code assistant** | Ask questions about an ingested codebase; can read full files and list directories |
+| 🌐 **Wikipedia lookup** | Always-on, no API key — fixes "the model's training data is stale" for stable facts (versions, definitions, history) |
+| 🔍 **Live web search** | Opt-in (needs a free Tavily key) — real-time answers for anything current/breaking |
 | 🎤 **Voice** | Speak your question, hear the answer spoken back — same brain, mic/speaker wrapper |
-| 🔒 **100% local** | LLM via Ollama, embeddings run in-process in the JVM, vector store is a local JSON file |
+| 🔒 **Local-by-default** | LLM via Ollama, embeddings run in-process in the JVM, vector store is a local JSON file — Wikipedia/web-search are the only calls that leave localhost, and only when a question needs them |
 
 ---
 
@@ -50,6 +52,8 @@ flowchart LR
     C -->|tool call: searchDocs| D[(Docs vector store<br/>data/store/docs-store.json)]
     C -->|tool call: searchCode| E[(Code vector store<br/>data/store/code-store.json)]
     C -->|tool call: readFile / listFiles| F[/Local filesystem/]
+    C -->|tool call: searchWikipedia| K[Wikipedia REST API<br/>always on, no key]
+    C -->|tool call: searchWeb| L[Tavily search API<br/>opt-in, needs a key]
     C <-->|generate| G[Ollama server<br/>localhost:11434<br/>llama3.2 / qwen2.5 / etc.]
 
     C -->|text reply| H[⌨️ Text out]
@@ -61,9 +65,9 @@ flowchart LR
 ```
 
 **The key idea:** one LLM (served by Ollama), one `AiServices`-backed agent, one chat memory — with
-a small toolbox (`searchDocs`, `searchCode`, `readFile`, `listFiles`) it calls into *only when the
-question needs it*. Voice doesn't touch the agent at all — it's STT/TTS bolted onto the same
-`/api/chat` logic.
+a small toolbox (`searchDocs`, `searchCode`, `readFile`, `listFiles`, `searchWikipedia`, `searchWeb`)
+it calls into *only when the question needs it*. Voice doesn't touch the agent at all — it's STT/TTS
+bolted onto the same `/api/chat` logic.
 
 ### Why an in-process embedding model?
 
@@ -79,13 +83,41 @@ For a single-user local assistant, an `InMemoryEmbeddingStore` serialized to dis
 for a few thousand chunks. Swap `EmbeddingStoreManager` for a real vector DB client if this needs
 to scale further — the rest of the app (tools, ingestion, agent) doesn't change.
 
+### Why does an "offline" assistant call the internet at all?
+
+Local LLMs have a training cutoff — ask one "what's the latest LTS version of Java" and it will
+confidently give you a stale or outright wrong answer, because it has no way to know its own
+knowledge ends at some past date. `WikipediaSearchTool` and `WebSearchTool` fix this the same way
+a human would: look it up instead of guessing. Everything else in the app stays local; these two
+tools are the deliberate, clearly-labeled exception, and `WebSearchTool` is off by default until you
+provide your own API key.
+
+| Tool | Setup | Coverage |
+|---|---|---|
+| `searchWikipedia` | None — works immediately | Stable/encyclopedic facts: versions, definitions, history |
+| `searchWeb` | Free [Tavily](https://app.tavily.com) API key (1000 searches/month free) | Real-time web search — anything current or niche |
+
+The `Assistant` system prompt also gets today's real date injected on every call (see
+`AssistantService.chat`), so the model knows *why* its own memory might be stale instead of
+asserting a wrong "latest version" with false confidence.
+
+**A note on model size and tool-calling reliability:** small local models (e.g. `llama3.2` 3B) are
+noticeably less reliable at *deciding* to call a tool for a given phrasing, and can occasionally
+state an answer while still (incorrectly) claiming "according to Wikipedia" without having called
+anything. This isn't a bug in the tools — verified independently, both return correct live data
+when actually invoked. Two things fixed this in practice: (1) switching the default model to
+`qwen2.5:7b`, and (2) making rule 2 of the system prompt an explicit, mandatory trigger-word list
+("latest", "current", "as of", etc. → call a tool *before* writing any reply text) rather than a
+soft suggestion — small/mid local models follow imperative, keyword-triggered instructions far more
+reliably than an implicit "use good judgment" framing.
+
 ---
 
 ## Tech stack
 
 - **Java 21**, **Spring Boot 4** (REST API + static web UI)
 - **[LangChain4j](https://docs.langchain4j.dev/)** — tool-calling `AiServices`, chat memory, RAG plumbing
-- **[Ollama](https://ollama.com)** — serves the local LLM (default: `llama3.2`)
+- **[Ollama](https://ollama.com)** — serves the local LLM (default: `qwen2.5:7b`; `llama3.2` 3B is faster but less reliable at tool-calling)
 - **all-MiniLM-L6-v2** (ONNX, in-process) — local embeddings, no server
 - **Apache PDFBox** (via LangChain4j) — PDF parsing for doc ingestion
 - **whisper.cpp** + **Piper** (optional, one-time setup) — fully local speech-to-text / text-to-speech
@@ -106,7 +138,9 @@ src/main/java/com/pankaj/localai/
 ├── tools/
 │   ├── DocSearchTool.java         @Tool: vector search over data/docs
 │   ├── CodeSearchTool.java        @Tool: vector search over data/code
-│   └── FileTools.java             @Tool: readFile / listFiles, sandboxed to the project root
+│   ├── FileTools.java             @Tool: readFile / listFiles, sandboxed to the project root
+│   ├── WikipediaSearchTool.java   @Tool: always-on, no-key lookup for stable/encyclopedic facts
+│   └── WebSearchTool.java         @Tool: opt-in live web search (Tavily, needs an API key)
 ├── rag/
 │   ├── EmbeddingStoreManager.java load/save the two JSON vector stores
 │   ├── DocumentIngestionService.java   chunk -> embed -> store, for docs
@@ -146,10 +180,9 @@ scripts/
 
 ### 2. Pull the local model
 ```bash
-ollama pull llama3.2          # ~2GB, good default for CPU-only machines
-# or, for better answers if you have more RAM/CPU/patience:
-# ollama pull qwen2.5:7b
-# ollama pull llama3.1:8b
+ollama pull qwen2.5:7b         # ~4.7GB, default — reliable tool-calling (needed for RAG/web-search)
+# or, for a much smaller/faster download on weaker machines (less reliable tool-calling):
+# ollama pull llama3.2         # ~2GB, 3B
 ```
 Change `assistant.ollama.chat-model` in `application.yml` if you pick a different model.
 
@@ -182,7 +215,26 @@ curl -X POST http://localhost:8088/api/chat \
 Point `assistant.rag.code-path` at any other repo to index that instead (or drop files into
 `data/code/`, which is also scanned if you set the path there).
 
-### 6. Try voice (optional, one-time setup)
+### 6. Try current-info lookup (fixes stale/wrong "latest version" answers)
+`searchWikipedia` works immediately, no setup:
+```bash
+curl -X POST http://localhost:8088/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"sessionId":"demo","message":"What is the latest Java LTS version?"}'
+```
+For broader real-time web search, get a free key at [app.tavily.com](https://app.tavily.com), then
+set in `application.yml`:
+```yaml
+assistant:
+  web-search:
+    enabled: true
+    tavily-api-key: "tvly-..."
+```
+Restart and `searchWeb` becomes available too. Note: smaller local models (`llama3.2` 3B) are
+noticeably less reliable at choosing to call these tools than a bigger one like `qwen2.5:7b` — see
+"A note on model size and tool-calling reliability" above.
+
+### 7. Try voice (optional, one-time setup)
 ```bash
 ./scripts/setup_voice.sh                       # builds whisper.cpp, downloads Piper + a voice
 # then set assistant.voice.enabled: true in application.yml and restart
@@ -196,7 +248,7 @@ mkdir -p ~/.local/ollama && cd ~/.local/ollama
 wget https://github.com/ollama/ollama/releases/latest/download/ollama-linux-amd64.tar.zst
 tar --zstd -xf ollama-linux-amd64.tar.zst
 ./bin/ollama serve &
-./bin/ollama pull llama3.2
+./bin/ollama pull qwen2.5:7b
 export PATH="$HOME/.local/ollama/bin:$PATH"   # add to ~/.bashrc to persist
 ```
 
@@ -222,12 +274,14 @@ export PATH="$HOME/.local/ollama/bin:$PATH"   # add to ~/.bashrc to persist
 | Key | Default | Meaning |
 |---|---|---|
 | `assistant.ollama.base-url` | `http://localhost:11434` | Where Ollama is listening |
-| `assistant.ollama.chat-model` | `llama3.2` | Which local model to use |
+| `assistant.ollama.chat-model` | `qwen2.5:7b` | Which local model to use (`llama3.2` for a faster/smaller footprint) |
 | `assistant.rag.docs-path` | `./data/docs` | Folder scanned for PDF/txt/md documents |
 | `assistant.rag.code-path` | `./data/code` | Folder scanned for source code |
 | `assistant.rag.chunk-size` / `chunk-overlap` | `500` / `50` | Text splitting for embeddings |
 | `assistant.rag.max-results` / `min-score` | `5` / `0.6` | Retrieval cutoffs |
 | `assistant.files.allowed-root` | `.` | Sandbox root for `readFile`/`listFiles` |
+| `assistant.web-search.enabled` | `false` | Turn on `searchWeb` (needs the key below); `searchWikipedia` always works regardless |
+| `assistant.web-search.tavily-api-key` | `""` | Free key from [app.tavily.com](https://app.tavily.com) |
 | `assistant.voice.enabled` | `false` | Turn on after running `setup_voice.sh` |
 
 ---

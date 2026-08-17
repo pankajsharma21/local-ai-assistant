@@ -32,8 +32,18 @@ public class HealthController {
                 "status", "ok",
                 "ollamaReachable", ollamaUp,
                 "chatModel", props.getOllama().getChatModel(),
-                "voice", voiceService.statusMessage()
+                "voice", voiceService.statusMessage(),
+                "webSearch", webSearchStatus()
         );
+    }
+
+    private String webSearchStatus() {
+        var config = props.getWebSearch();
+        if (!config.isEnabled() || config.getTavilyApiKey().isBlank()) {
+            return "Live web search disabled — searchWikipedia still works. " +
+                    "Set assistant.web-search.enabled=true + a Tavily key to enable searchWeb.";
+        }
+        return "Live web search enabled (Tavily).";
     }
 
     private boolean pingOllama() {

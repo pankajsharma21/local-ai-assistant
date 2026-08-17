@@ -12,7 +12,7 @@ spring:
 assistant:
   ollama:
     base-url: http://localhost:11434
-    chat-model: llama3.2       # small + fast on CPU-only machines; try qwen2.5:7b or llama3.1:8b for better quality
+    chat-model: qwen2.5:7b     # more reliable tool-calling than llama3.2 (3B); swap back for speed on weaker machines
     temperature: 0.3
     timeout-seconds: 300
 
@@ -28,6 +28,16 @@ assistant:
   files:
     # Tool calls (read_file / list_files) are sandboxed to this directory - no path traversal outside it.
     allowed-root: .
+
+  web-search:
+    # Real-time web search — the ONE feature that calls out to the internet (everything else in
+    # this app is fully local). Fixes the classic "LLM confidently gives an outdated/wrong answer
+    # for anything after its training cutoff" problem (e.g. "what's the latest Java version?").
+    # Wikipedia lookups (searchWikipedia tool) always work, no key needed. This section only gates
+    # the broader live-web-search tool (searchWeb), which needs a free Tavily API key.
+    enabled: false                              # set true once you have a key below
+    tavily-api-key: ""                          # free key: https://app.tavily.com (1000 searches/month free)
+    max-results: 5
 
   voice:
     enabled: false                              # flip to true after running scripts/setup_voice.sh

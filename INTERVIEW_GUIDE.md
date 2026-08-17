@@ -7,11 +7,11 @@ kaise bolna hai, wo yahan hai. Ratta mat maaro, bas flow samajh lo, apne words m
 
 ## 1. Sabse pehle, one-liner (30 second pitch)
 
-> "Maine ek Java-based AI assistant banaya hai jo **fully offline** chalta hai — matlab koi bhi
+> "Maine ek Java-based AI assistant banaya hai jo **local-first** chalta hai — matlab koi bhi
 > OpenAI ya ChatGPT jaisi cloud API use nahi ki. Model, embeddings, sab kuch mere hi laptop pe chal
-> raha hai. Ye assistant teen kaam kar sakta hai — normal chat, apne documents se sawaal-jawaab
-> (RAG), aur apne codebase ke baare mein sawaal — aur teeno ek hi engine se chalte hain, bas data
-> alag hai."
+> raha hai. Ye assistant normal chat kar sakta hai, apne documents se sawaal-jawaab (RAG), apne
+> codebase ke baare mein sawaal, aur current/latest facts ke liye Wikipedia ya live web search bhi
+> — aur ye sab ek hi engine se chalte hain, bas data/tool alag hai."
 
 Ye line bol ke ruk jao. Interviewer agla sawaal khud puchhega — usi se pura conversation flow
 karega.
@@ -31,7 +31,7 @@ karega.
 
 Yahan pe bolo ki **ek hi 'brain' hai, teen alag tareeke se use hota hai**:
 
-> "Core mein ek LLM hai — Llama 3.2 — jo **Ollama** naam ke tool ke through localhost pe chal raha
+> "Core mein ek LLM hai — Qwen 2.5 (7B) — jo **Ollama** naam ke tool ke through localhost pe chal raha
 > hai, bilkul ek chhota web server ki tarah. Java app usse HTTP request bhejta hai, jaise hum kisi
 > normal REST API ko call karte hain — bas ye API humare hi laptop pe hai.
 >
@@ -87,7 +87,56 @@ Ye sabse important insight hai — bolna zaroor:
 
 ---
 
-## 6. "Voice wala part kaise kaam karta hai?"
+## 6. "Agar LLM ko current/latest info nahi pata, to?"
+
+Ye ek real problem hai jo maine khud face kiya — bolna zaroor, kyunki ye genuine debugging story hai:
+
+> "Jab maine assistant se poochha 'latest Java LTS version kya hai', usne confidently galat jawaab
+> diya — kyunki LLM ka training data ek fixed date tak hi hai, uske baad ka kuch nahi jaanta, lekin
+> wo ye 'nahi pata' bolne ke bajaye guess kar deta hai. Isko fix karne ke liye maine do naye tools
+> add kiye:
+>
+> - `searchWikipedia` — hamesha ON rehta hai, koi API key nahi chahiye. Wikipedia ka official REST
+>   API use karta hai.
+> - `searchWeb` — real-time web search, Tavily API (AI agents ke liye specially bana hai) use karta
+>   hai. Ye opt-in hai — free API key chahiye, isliye by default OFF rehta hai.
+>
+> Maine system prompt mein aaj ki actual date bhi inject ki hai, aur model ko explicitly bola hai:
+> 'agar sawaal current/latest ke baare mein hai, apni memory pe trust mat karo, tool call karo'."
+
+Agar poochhe "ye poore project ke 'offline' claim se conflict nahi karta?":
+
+> "Bilkul sahi observation hai. Maine ye clearly documented rakha hai — ye do tools hi hain jo
+> internet call karte hain, baaki sab kuch (chat, doc RAG, code RAG, embeddings, voice) 100% local
+> hai. `searchWeb` bhi by default OFF hai — user ko explicitly apni API key dalke enable karna
+> padta hai. Ye ek conscious trade-off hai: accuracy ke liye ek chhota si controlled exception."
+
+**Ek aur real bug jo mila (Jackson version mismatch — ye bhi interesting hai):**
+
+> "Jab maine ye Wikipedia tool test kiya, ek error mila: 'Type definition error: JsonNode'. Turns out
+> Spring Boot 4 ne apna internal JSON library Jackson 3 pe migrate kar diya hai (naya package name
+> `tools.jackson`), lekin LangChain4j abhi bhi purana classic Jackson 2 (`com.fasterxml.jackson`) use
+> karta hai. Maine JsonNode import classic Jackson se kiya tha, lekin Spring ka auto-configured HTTP
+> client sirf naye Jackson 3 ko samajhta tha — isliye deserialize fail ho raha tha. Fix: response ko
+> raw String ki tarah fetch kiya, phir apne khud ke classic-Jackson `ObjectMapper` se manually parse
+> kiya — Spring ke auto-conversion se bypass kar diya."
+
+Ye bhi bolna GOOD hai — shows you actually debug real framework-version issues, not just happy-path code.
+
+**Model size ka real limitation bhi honestly bata sakte ho:**
+
+> "Shuru mein maine chhota model (llama3.2, 3B) use kiya tha — wo kabhi-kabhi tool call karna hi
+> bhool jaata tha, ya tool ka result use kiye bina hi 'according to Wikipedia' bol ke apni purani
+> memory se jawaab de deta tha. Maine do cheezein fix ki: (1) default model ko `qwen2.5:7b` (bada,
+> 7B) pe switch kiya, aur (2) system prompt ko zyada **directive** banaya — sirf 'tool available hai'
+> bolna kaafi nahi tha, maine explicit trigger words diye ('latest', 'current', 'as of' waale sawaal
+> pe tool call karna MANDATORY hai, reply likhne se pehle). In dono ke combination se reliability
+> bahut improve hui — chhote models imperative, keyword-based instructions follow karte hain,
+> soft 'use good judgment' wale hints se zyada reliably."
+
+---
+
+## 7. "Voice wala part kaise kaam karta hai?"
 
 > "Voice bhi is architecture mein sirf ek **input/output wrapper** hai — agent ka core logic bilkul
 > nahi badalta. Mic se audio aata hai, `whisper.cpp` (ek local speech-to-text tool) usse text mein
@@ -102,14 +151,14 @@ usme cmake/build tools chahiye — setup script maine likh diya hai, `setup_voic
 
 ---
 
-## 7. "Kaunsi tech stack use ki?"
+## 8. "Kaunsi tech stack use ki?"
 
 > "Java 21, Spring Boot for REST API. LangChain4j for the agent/tool-calling/RAG logic. Ollama for
 > serving the LLM. Local vector store JSON files mein persist hote hain. PDFBox for PDF parsing."
 
 ---
 
-## 8. "Sabse interesting challenge kya aaya?"
+## 9. "Sabse interesting challenge kya aaya?"
 
 Real cheez jo tumne khud face ki (impressive hai kyunki genuine hai):
 
@@ -123,7 +172,7 @@ Ye bolna GOOD hai — shows real debugging, not just copy-paste.
 
 ---
 
-## 9. Live demo flow (agar demo dena ho)
+## 10. Live demo flow (agar demo dena ho)
 
 1. `curl /api/health` dikhao — Ollama reachable hai, model kaunsa load hai.
 2. `curl -X POST /api/ingest/docs` — docs index ho gaye.
@@ -135,14 +184,17 @@ Ye bolna GOOD hai — shows real debugging, not just copy-paste.
    hai.
 6. Ek general knowledge sawaal poochho (jaise capital of France) — dikhao ki bina tool call kiye
    bhi normal chat kaam karta hai.
+7. Poochho: *"what is the latest Java LTS version?"* — dikhao ki ye Wikipedia se live data laata
+   hai, apni purani/galat memory se nahi. (Agar chhota model use kar rahe ho aur wo tool call na
+   kare, ye khud ek achha talking point hai — section 6 dekho.)
 
 ---
 
-## 10. Anticipated follow-up questions
+## 11. Anticipated follow-up questions
 
 | Sawaal | Chhota jawaab |
 |---|---|
-| "Production mein scale kaise karoge?" | "Vector store ko real DB (pgvector/Chroma) mein swap karunga, aur bada model (qwen2.5:7b) use karunga agar GPU ho." |
+| "Production mein scale kaise karoge?" | "Vector store ko real DB (pgvector/Chroma) mein swap karunga, aur agar GPU available ho to aur bhi bada model (llama3.1:8b ya bigger) try karunga." |
 | "Security kaisi hai?" | "`readFile`/`listFiles` tools sandboxed hain — sirf project folder ke andar hi kaam karte hain, path traversal (../../etc/passwd) block hai." |
 | "Multiple users ek saath use kar sakte hain?" | "Haan, har session ka apna alag `sessionId` aur memory hai — ek dusre se mix nahi hota." |
 | "Model badalna ho to?" | "Sirf `application.yml` mein ek line badlo — koi code change nahi." |
@@ -150,5 +202,6 @@ Ye bolna GOOD hai — shows real debugging, not just copy-paste.
 
 ---
 
-**Bottom line jo yaad rakhna hai:** *"Ek model, ek agent, teen tools, alag-alag data — aur voice
-sirf ek input/output wrapper hai upar se."* Isi ek line ke around pura explanation ghumta hai.
+**Bottom line jo yaad rakhna hai:** *"Ek model, ek agent, chhah tools, alag-alag data — voice sirf
+ek input/output wrapper hai upar se, aur Wikipedia/web-search hi sirf do jagah hain jahan main
+jaan-boojh kar internet ko touch karta hoon."* Isi ek line ke around pura explanation ghumta hai.

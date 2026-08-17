@@ -12,6 +12,7 @@ public class AssistantProperties {
     private Rag rag = new Rag();
     private Files files = new Files();
     private Voice voice = new Voice();
+    private WebSearch webSearch = new WebSearch();
 
     public Ollama getOllama() { return ollama; }
     public void setOllama(Ollama ollama) { this.ollama = ollama; }
@@ -21,6 +22,8 @@ public class AssistantProperties {
     public void setFiles(Files files) { this.files = files; }
     public Voice getVoice() { return voice; }
     public void setVoice(Voice voice) { this.voice = voice; }
+    public WebSearch getWebSearch() { return webSearch; }
+    public void setWebSearch(WebSearch webSearch) { this.webSearch = webSearch; }
 
     public static class Ollama {
         private String baseUrl = "http://localhost:11434";
@@ -68,6 +71,19 @@ public class AssistantProperties {
 
         public String getAllowedRoot() { return allowedRoot; }
         public void setAllowedRoot(String allowedRoot) { this.allowedRoot = allowedRoot; }
+    }
+
+    public static class WebSearch {
+        private boolean enabled = false;
+        private String tavilyApiKey = "";
+        private int maxResults = 5;
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public String getTavilyApiKey() { return tavilyApiKey; }
+        public void setTavilyApiKey(String tavilyApiKey) { this.tavilyApiKey = tavilyApiKey; }
+        public int getMaxResults() { return maxResults; }
+        public void setMaxResults(int maxResults) { this.maxResults = maxResults; }
     }
 
     public static class Voice {

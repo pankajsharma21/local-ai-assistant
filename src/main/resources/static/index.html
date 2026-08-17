@@ -79,6 +79,9 @@
     <button id="resetSession">🔄 New conversation</button>
     <div class="hint">Session id: <span id="sessionIdLabel"></span></div>
 
+    <h2>Web search</h2>
+    <div class="hint" id="webSearchHint">checking web search status...</div>
+
     <h2>Voice</h2>
     <div class="hint" id="voiceHint">checking voice status...</div>
   </aside>
@@ -161,6 +164,7 @@ async function checkHealth() {
       ? `Ollama reachable · model: ${data.chatModel}`
       : `Ollama NOT reachable — is 'ollama serve' running?`;
     document.getElementById('voiceHint').textContent = data.voice;
+    document.getElementById('webSearchHint').textContent = data.webSearch;
   } catch {
     dot.className = 'dot bad';
     text.textContent = 'Backend not reachable';
