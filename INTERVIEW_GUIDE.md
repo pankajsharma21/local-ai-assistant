@@ -134,6 +134,30 @@ Ye bhi bolna GOOD hai — shows you actually debug real framework-version issues
 > bahut improve hui — chhote models imperative, keyword-based instructions follow karte hain,
 > soft 'use good judgment' wale hints se zyada reliably."
 
+**Real user-testing se do aur bugs mile (ye story bolna best hai — khud mujhe nahi mile the, user ne
+mujhe use karke dikhaye):**
+
+> "Jab maine khud test kiya tab sab sahi laga, lekin jab actual user ne app use kiya to same
+> question ('latest Java version') do baar galat jawaab de raha tha. Debug karke do real bugs mile:
+>
+> Bug 1 — **model sirf ek tool call karta hai, chain nahi karta**: system prompt mein maine likha tha
+> 'searchWeb call karo, agar wo not-configured bole to searchWikipedia call karo'. Lekin model
+> searchWeb call karta, 'not configured' padhta, aur wahin ruk jaata — dusra tool call kabhi nahi
+> karta! Fix: maine ye fallback logic **code mein** move kar di — ab `WebSearchTool.searchWeb()`
+> khud hi andar se `WikipediaSearchTool` ko call kar deta hai jab Tavily configure nahi hai. Ab model
+> ki decision pe depend nahi karta, guaranteed chalta hai.
+>
+> Bug 2 — **galat Wikipedia API use ki thi**: maine `opensearch` endpoint use kiya tha jo sirf title
+> ke SHURU se match karta hai. Query 'latest Java version' ke liye ye ZERO results deta hai kyunki
+> koi bhi Wikipedia article isse start nahi hota! Maine directly test karke confirm kiya. Fix:
+> `action=query&list=search` (Wikipedia ka real full-text search) use kiya — ye 'Java version
+> history' article ko sahi se dhoond leta hai chahe query kaisa bhi phrase ho."
+
+Ye poora example bolna GOOD hai kyunki ye dikhata hai: (a) khud test karna kaafi nahi hota, real user
+testing zaroori hai, (b) LLM ki 'multi-step reasoning' pe blindly trust nahi karna chahiye — jo
+guarantee chahiye wo code mein likho, prompt mein mat chhodo, (c) tumne actual API behavior verify
+kiya (opensearch vs full-text search), guess nahi kiya.
+
 ---
 
 ## 7. "Voice wala part kaise kaam karta hai?"

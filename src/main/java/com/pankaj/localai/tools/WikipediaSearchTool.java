@@ -43,6 +43,7 @@ public class WikipediaSearchTool {
         or "as of" - your training data has a cutoff and may be stale or simply wrong.
         """)
     public String searchWikipedia(String query) {
+        log.info("searchWikipedia called with query: {}", query);
         try {
             String title = findBestTitle(query);
             if (title == null) {
@@ -66,18 +67,29 @@ public class WikipediaSearchTool {
         return raw == null ? null : objectMapper.readTree(raw);
     }
 
-    /** Wikipedia's "opensearch" endpoint resolves a free-text query to the best-matching page title. */
+    /**
+     * Resolves a free-text query to the best-matching page title using Wikipedia's full-text
+     * search (action=query&list=search) — NOT the "opensearch" endpoint, which only does
+     * title-PREFIX matching and returns empty for anything phrased as a natural question.
+     * Verified: "latest Java version" (a real query an LLM generates) returns zero results from
+     * opensearch but correctly finds "Java version history" as the #1 hit from full-text search.
+     */
     private String findBestTitle(String query) throws Exception {
         JsonNode result = getJson(spec -> spec.uri(uriBuilder -> uriBuilder.path("/w/api.php")
-                .queryParam("action", "opensearch")
-                .queryParam("search", query)
-                .queryParam("limit", 1)
+                .queryParam("action", "query")
+                .queryParam("list", "search")
+                .queryParam("srsearch", query)
+                .queryParam("srlimit", 1)
                 .queryParam("format", "json")
                 .build()));
-        if (result == null || !result.isArray() || result.size() < 2 || result.get(1).isEmpty()) {
+        if (result == null) {
             return null;
         }
-        return result.get(1).get(0).asText();
+        JsonNode hits = result.path("query").path("search");
+        if (!hits.isArray() || hits.isEmpty()) {
+            return null;
+        }
+        return hits.get(0).path("title").asText(null);
     }
 
     /**

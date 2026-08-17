@@ -18,9 +18,14 @@ import java.util.Map;
  *
  * This is the one tool in the whole app that is opt-in AND requires an external account: it needs
  * assistant.web-search.enabled=true plus a free API key in application.yml. Deliberately gated the
- * same way voice is — missing config degrades to a clear message instead of a stack trace, and the
- * agent is told (via the tool's own description + Assistant's system prompt) to fall back to
- * searchWikipedia or its own knowledge when this isn't configured.
+ * same way voice is — missing config degrades gracefully instead of a stack trace.
+ *
+ * IMPORTANT: when Tavily isn't configured (or the call fails), this tool falls back to
+ * WikipediaSearchTool ITSELF, in code — it does not just tell the model "go call searchWikipedia
+ * instead" and hope it does. Verified in testing: mid-size local models will call searchWeb, read a
+ * "not configured" message, and simply give up instead of making a second tool call — models are
+ * far more reliable at using one tool's result than at chaining two tool calls on their own
+ * initiative. Handling the fallback deterministically in code removes that failure mode entirely.
  *
  * Response body is parsed manually with our own (classic, com.fasterxml) Jackson ObjectMapper —
  * see WikipediaSearchTool's class comment for why: Spring Boot 4's auto-configured RestClient
@@ -32,13 +37,15 @@ public class WebSearchTool {
     private static final Logger log = LoggerFactory.getLogger(WebSearchTool.class);
 
     private final AssistantProperties.WebSearch config;
+    private final WikipediaSearchTool wikipediaFallback;
     private final RestClient restClient = RestClient.builder()
             .baseUrl("https://api.tavily.com")
             .build();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public WebSearchTool(AssistantProperties props) {
+    public WebSearchTool(AssistantProperties props, WikipediaSearchTool wikipediaFallback) {
         this.config = props.getWebSearch();
+        this.wikipediaFallback = wikipediaFallback;
     }
 
     public boolean isAvailable() {
@@ -49,14 +56,15 @@ public class WebSearchTool {
         Search the live web for current, up-to-date information - anything that could have changed
         since your training cutoff: current software/library versions, recent events, prices,
         "latest"/"newest" anything. Do NOT answer these from your own memory, it may be stale or
-        simply wrong - call this tool instead. If it reports it isn't configured, fall back to
-        searchWikipedia, and tell the user their answer might be outdated.
+        simply wrong - call this tool instead. If live search isn't configured on this machine, this
+        tool automatically returns a Wikipedia-sourced answer instead - mention to the user that the
+        answer came from Wikipedia (not live search) if that happens.
         """)
     public String searchWeb(String query) {
+        log.info("searchWeb called with query: {}", query);
         if (!isAvailable()) {
-            return "Live web search is not configured. Tell the user: set assistant.web-search.enabled=true " +
-                    "and add a free Tavily API key (https://app.tavily.com) under assistant.web-search.tavily-api-key " +
-                    "in application.yml, then restart. Use searchWikipedia instead for now.";
+            log.info("Tavily not configured, falling back to Wikipedia for: {}", query);
+            return "[Live web search not configured — falling back to Wikipedia]\n" + wikipediaFallback.searchWikipedia(query);
         }
         try {
             Map<String, Object> requestBody = Map.of(
@@ -77,8 +85,8 @@ public class WebSearchTool {
 
             return format(response);
         } catch (Exception e) {
-            log.warn("Web search failed for '{}'", query, e);
-            return "Web search failed (" + e.getMessage() + "). Fall back to searchWikipedia or say you're unsure.";
+            log.warn("Web search failed for '{}', falling back to Wikipedia", query, e);
+            return "[Live web search failed — falling back to Wikipedia]\n" + wikipediaFallback.searchWikipedia(query);
         }
     }
 

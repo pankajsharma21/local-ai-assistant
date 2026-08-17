@@ -111,6 +111,24 @@ when actually invoked. Two things fixed this in practice: (1) switching the defa
 soft suggestion — small/mid local models follow imperative, keyword-triggered instructions far more
 reliably than an implicit "use good judgment" framing.
 
+**Two more real bugs found via actual user testing (not caught by my own test prompts):**
+1. **Single-hop tool use.** Even `qwen2.5:7b`, told explicitly in the prompt to "call searchWeb, or
+   searchWikipedia if searchWeb isn't configured," would call `searchWeb`, read its "not configured"
+   message, and then just give up instead of making a second tool call — models are far more
+   reliable at using one tool's result than at *chaining* two tool calls on their own initiative.
+   Fixed by moving the fallback into code: `WebSearchTool.searchWeb()` now calls
+   `WikipediaSearchTool` directly when Tavily isn't configured (or the call fails), so the fallback
+   is guaranteed regardless of what the model decides.
+2. **Wrong Wikipedia search endpoint.** `WikipediaSearchTool` was resolving titles via
+   `action=opensearch`, which does title-*prefix* matching only. An LLM-generated query like
+   `"latest Java version"` returns **zero** results from that endpoint (no article title starts with
+   those words) — confirmed with a direct API call. Switched to `action=query&list=search`
+   (Wikipedia's real full-text search), which correctly finds "Java version history" as the #1 hit
+   for that exact phrasing.
+
+Both are logged now (`WebSearchTool`/`WikipediaSearchTool` log every call at INFO level) specifically
+so a failure like this is diagnosable from the logs instead of guesswork next time.
+
 ---
 
 ## Tech stack
