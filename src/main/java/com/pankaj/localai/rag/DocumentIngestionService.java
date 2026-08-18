@@ -17,15 +17,18 @@ import java.io.InputStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
 /**
- * Ingests your personal documents (PDFs, notes, markdown) from assistant.rag.docs-path into the
- * "docs" vector store, so DocSearchTool can retrieve them later. This is step 1-3 of the RAG
- * pipeline: chunk -> embed -> store. Retrieval + generation happens later, at question time,
- * inside DocSearchTool.
+ * Ingests your personal documents (PDFs, notes, markdown) into the "docs" vector store, so
+ * DocSearchTool can retrieve them later. This is step 1-3 of the RAG pipeline: chunk -> embed ->
+ * store. Retrieval + generation happens later, at question time, inside DocSearchTool.
+ *
+ * Three entry points, all sharing the same chunk/embed/store pipeline:
+ *  - ingestAll()         bulk re-scan of the configured assistant.rag.docs-path folder
+ *  - ingestPath(path)    ingest an arbitrary file OR directory from anywhere on disk
+ *  - ingestUploadedFile  ingest bytes handed to us directly (browser file-picker upload)
  */
 @Service
 public class DocumentIngestionService {
@@ -44,44 +47,98 @@ public class DocumentIngestionService {
         this.storeManager = storeManager;
     }
 
-    /**
-     * Re-scans the docs folder and (re-)ingests every supported file found.
-     * Returns how many files were processed.
-     */
+    /** Re-scans the configured docs folder and (re-)ingests every supported file found. */
     public synchronized int ingestAll() {
         Path root = Path.of(props.getRag().getDocsPath());
         if (!Files.isDirectory(root)) {
             log.warn("Docs path {} does not exist — nothing to ingest", root);
             return 0;
         }
+        return ingestPath(root);
+    }
 
-        EmbeddingStoreIngestor ingestor = EmbeddingStoreIngestor.builder()
+    /**
+     * Ingests an arbitrary file or directory from anywhere on the local filesystem — this is what
+     * powers "give me a path" ingestion from the UI. Not sandboxed to the project directory on
+     * purpose: this is a human typing a path into their own locally-running app, not an LLM tool
+     * call (compare FileTools, which IS sandboxed, because that's driven by model output).
+     */
+    public synchronized int ingestPath(Path path) {
+        if (Files.isRegularFile(path)) {
+            boolean ok = ingestSingleFile(path, path.getParent() == null ? path : path.getParent(), fileLabel(path));
+            if (ok) {
+                storeManager.saveDocsStore();
+            }
+            return ok ? 1 : 0;
+        }
+        if (!Files.isDirectory(path)) {
+            log.warn("Path {} does not exist or is not readable", path);
+            return 0;
+        }
+
+        int[] count = {0};
+        try (Stream<Path> paths = Files.walk(path)) {
+            paths.filter(Files::isRegularFile)
+                 .filter(this::isSupported)
+                 .forEach(p -> {
+                     if (ingestSingleFile(p, path, relativeLabel(p, path))) {
+                         count[0]++;
+                     }
+                 });
+        } catch (IOException e) {
+            throw new RuntimeException("Failed walking directory " + path, e);
+        }
+        storeManager.saveDocsStore();
+        log.info("Document ingestion complete: {} file(s) processed from {}", count[0], path);
+        return count[0];
+    }
+
+    /**
+     * Ingests file content handed to us directly (e.g. a browser upload) without it needing to
+     * exist as a file on disk under the app's own folders first.
+     */
+    public synchronized boolean ingestUploadedFile(InputStream content, String originalFileName) {
+        String ext = extensionOf(Path.of(originalFileName));
+        if (!PDF_EXT.contains(ext) && !TEXT_EXT.contains(ext)) {
+            log.warn("Unsupported file type for upload: {}", originalFileName);
+            return false;
+        }
+        try {
+            DocumentParser parser = PDF_EXT.contains(ext) ? new ApachePdfBoxDocumentParser() : new TextDocumentParser();
+            Document document = parser.parse(content);
+            document.metadata().put("file_name", originalFileName);
+            document.metadata().put("source", "docs");
+            ingestor().ingest(document);
+            storeManager.saveDocsStore();
+            log.info("Ingested uploaded file: {}", originalFileName);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to ingest uploaded file {}: {}", originalFileName, e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean ingestSingleFile(Path path, Path labelRoot, String label) {
+        if (!isSupported(path)) {
+            return false;
+        }
+        try {
+            Document document = loadDocument(path, label);
+            ingestor().ingest(document);
+            log.info("Ingested doc: {}", label);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to ingest {}: {}", path, e.getMessage());
+            return false;
+        }
+    }
+
+    private EmbeddingStoreIngestor ingestor() {
+        return EmbeddingStoreIngestor.builder()
                 .documentSplitter(DocumentSplitters.recursive(props.getRag().getChunkSize(), props.getRag().getChunkOverlap()))
                 .embeddingModel(embeddingModel)
                 .embeddingStore(storeManager.docsStore())
                 .build();
-
-        int[] count = {0};
-        try (Stream<Path> paths = Files.walk(root)) {
-            paths.filter(Files::isRegularFile)
-                 .filter(this::isSupported)
-                 .forEach(path -> {
-                     try {
-                         Document document = loadDocument(path, root);
-                         ingestor.ingest(document);
-                         count[0]++;
-                         log.info("Ingested doc: {}", root.relativize(path));
-                     } catch (Exception e) {
-                         log.error("Failed to ingest {}: {}", path, e.getMessage());
-                     }
-                 });
-        } catch (IOException e) {
-            throw new RuntimeException("Failed walking docs directory " + root, e);
-        }
-
-        storeManager.saveDocsStore();
-        log.info("Document ingestion complete: {} file(s) processed", count[0]);
-        return count[0];
     }
 
     private boolean isSupported(Path path) {
@@ -95,14 +152,22 @@ public class DocumentIngestionService {
         return dot < 0 ? "" : name.substring(dot + 1).toLowerCase();
     }
 
-    private Document loadDocument(Path path, Path root) throws IOException {
+    private String fileLabel(Path path) {
+        return path.getFileName().toString();
+    }
+
+    private String relativeLabel(Path path, Path root) {
+        return root.relativize(path).toString().replace(FileSystems.getDefault().getSeparator(), "/");
+    }
+
+    private Document loadDocument(Path path, String label) throws IOException {
         DocumentParser parser = PDF_EXT.contains(extensionOf(path))
                 ? new ApachePdfBoxDocumentParser()
                 : new TextDocumentParser();
 
         try (InputStream in = Files.newInputStream(path)) {
             Document document = parser.parse(in);
-            document.metadata().put("file_name", root.relativize(path).toString().replace(FileSystems.getDefault().getSeparator(), "/"));
+            document.metadata().put("file_name", label);
             document.metadata().put("source", "docs");
             return document;
         }

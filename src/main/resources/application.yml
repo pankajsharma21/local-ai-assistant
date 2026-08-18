@@ -1,5 +1,8 @@
 server:
   port: 8088
+  address: 127.0.0.1   # localhost only, not the whole LAN — /api/ingest/path can read any file on
+                       # this machine the app's OS user can access, so this shouldn't be reachable
+                       # from other devices on the network. Change deliberately if you need remote access.
 
 spring:
   application:

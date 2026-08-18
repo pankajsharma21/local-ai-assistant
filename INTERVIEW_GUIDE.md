@@ -87,7 +87,36 @@ Ye sabse important insight hai — bolna zaroor:
 
 ---
 
-## 6. "Agar LLM ko current/latest info nahi pata, to?"
+## 6. "Documents kaise upload karte ho — kya sirf ek fixed folder mein daalna padta hai?"
+
+> "Shuru mein haan, sirf `data/docs` folder mein file daalke ek button click karna padta tha. User
+> feedback mila ki ye ChatGPT/Claude jaisa nahi lag raha — wahan seedha chat ke andar attach kar
+> sakte ho. Maine teen tareeke add kiye:
+>
+> 1. **📎 Attach button** — chat box ke paas paperclip icon, click karo to OS ka native file dialog
+>    khulta hai, koi bhi file kahin se bhi pick karo — turant upload + ingest ho jaata hai, koi
+>    manual copy-paste nahi.
+> 2. **Path paste karo** — sidebar mein ek text box hai, kisi bhi file/folder ka absolute path daalo
+>    (jaise `/home/user/Documents/report.pdf`), 'Ingest' click karo — bina browser upload ke, seedha
+>    server disk se padh leta hai.
+> 3. Purana bulk-folder-scan button bhi hai, jo `data/docs` ko re-scan karta hai.
+>
+> Teeno same pipeline use karte hain (chunk -> embed -> store) — bas file kaise andar aati hai, wo
+> alag hai."
+
+Agar poochhe "security ka kya, ye toh koi bhi file padh sakta hai?":
+
+> "Achha sawaal. Maine do alag trust-level define kiye: `FileTools` (jo LLM khud call karta hai,
+> apne reasoning se) sirf project folder tak sandboxed hai — kyunki wo kabhi kisi retrieved document
+> mein chhupi hui prompt-injection se manipulate ho sakta hai. Lekin `/api/ingest/path` insaan khud
+> call kar raha hai, apna hi path type karke — ye same trust level hai jaise koi file text editor mein
+> khol rahe ho. Isliye maine ise sandbox nahi kiya, lekin ek dusra safeguard add kiya: server ab sirf
+> `127.0.0.1` (localhost) pe bind hota hai, poore network pe nahi — taaki koi doosra device isi
+> feature ka galat use na kar sake."
+
+---
+
+## 7. "Agar LLM ko current/latest info nahi pata, to?"
 
 Ye ek real problem hai jo maine khud face kiya — bolna zaroor, kyunki ye genuine debugging story hai:
 
@@ -160,7 +189,7 @@ kiya (opensearch vs full-text search), guess nahi kiya.
 
 ---
 
-## 7. "Voice wala part kaise kaam karta hai?"
+## 8. "Voice wala part kaise kaam karta hai?"
 
 > "Voice bhi is architecture mein sirf ek **input/output wrapper** hai — agent ka core logic bilkul
 > nahi badalta. Mic se audio aata hai, `whisper.cpp` (ek local speech-to-text tool) usse text mein
@@ -175,14 +204,14 @@ usme cmake/build tools chahiye — setup script maine likh diya hai, `setup_voic
 
 ---
 
-## 8. "Kaunsi tech stack use ki?"
+## 9. "Kaunsi tech stack use ki?"
 
 > "Java 21, Spring Boot for REST API. LangChain4j for the agent/tool-calling/RAG logic. Ollama for
 > serving the LLM. Local vector store JSON files mein persist hote hain. PDFBox for PDF parsing."
 
 ---
 
-## 9. "Sabse interesting challenge kya aaya?"
+## 10. "Sabse interesting challenge kya aaya?"
 
 Real cheez jo tumne khud face ki (impressive hai kyunki genuine hai):
 
@@ -196,7 +225,7 @@ Ye bolna GOOD hai — shows real debugging, not just copy-paste.
 
 ---
 
-## 10. Live demo flow (agar demo dena ho)
+## 11. Live demo flow (agar demo dena ho)
 
 1. `curl /api/health` dikhao — Ollama reachable hai, model kaunsa load hai.
 2. `curl -X POST /api/ingest/docs` — docs index ho gaye.
@@ -209,12 +238,15 @@ Ye bolna GOOD hai — shows real debugging, not just copy-paste.
 6. Ek general knowledge sawaal poochho (jaise capital of France) — dikhao ki bina tool call kiye
    bhi normal chat kaam karta hai.
 7. Poochho: *"what is the latest Java LTS version?"* — dikhao ki ye Wikipedia se live data laata
-   hai, apni purani/galat memory se nahi. (Agar chhota model use kar rahe ho aur wo tool call na
-   kare, ye khud ek achha talking point hai — section 6 dekho.)
+   hai, apni purani/galat memory se nahi. (Agar model tool call na kare, ye khud ek achha talking
+   point hai — section 7 dekho.)
+8. 📎 attach button click karo, koi bhi file pick karo (kahin se bhi, `data/docs` ke bahar) — turant
+   ingest confirmation dikhega. Phir usi file ke baare mein poochho — dikhao ki ye bhi turant
+   searchable hai, koi manual copy-paste ki zaroorat nahi.
 
 ---
 
-## 11. Anticipated follow-up questions
+## 12. Anticipated follow-up questions
 
 | Sawaal | Chhota jawaab |
 |---|---|

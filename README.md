@@ -214,8 +214,22 @@ ollama serve &                # if not already running
 Open **http://localhost:8088** for the chat UI, or use the REST API directly (below).
 
 ### 4. Try document RAG
+Three ways to bring documents in — not just the fixed `data/docs` folder:
+
+- **Bulk folder scan**: `curl -X POST http://localhost:8088/api/ingest/docs` (indexes everything
+  under `assistant.rag.docs-path`, sample file included)
+- **📎 Attach from anywhere** (web UI): click the paperclip next to the chat box, pick any file via
+  your OS's native file dialog — it's uploaded and indexed immediately, no need to copy it into the
+  project folder first (this mirrors how ChatGPT/Claude attachments work)
+- **Paste a path** (web UI or API): a file or folder path from *anywhere* on disk
+  ```bash
+  curl -X POST http://localhost:8088/api/ingest/path \
+    -H "Content-Type: application/json" \
+    -d '{"path": "/home/you/Documents/some-report.pdf"}'
+  ```
+
+Then ask about it:
 ```bash
-curl -X POST http://localhost:8088/api/ingest/docs      # indexes data/docs (sample file included)
 curl -X POST http://localhost:8088/api/chat \
   -H "Content-Type: application/json" \
   -d '{"sessionId":"demo","message":"what is the secret test phrase in my notes?"}'
@@ -279,6 +293,16 @@ export PATH="$HOME/.local/ollama/bin:$PATH"   # add to ~/.bashrc to persist
 | `POST` | `/api/chat` | `{"sessionId": "...", "message": "..."}` | Ask anything — the agent picks tools as needed |
 | `POST` | `/api/ingest/docs` | — | (Re)index everything in `assistant.rag.docs-path` |
 | `POST` | `/api/ingest/code` | — | (Re)index everything in `assistant.rag.code-path` |
+| `POST` | `/api/ingest/path` | `{"path": "/any/file/or/folder"}` | Index a file or directory from anywhere on disk |
+| `POST` | `/api/ingest/upload` | multipart `file` | Index a file handed to us directly (browser attach button) |
+
+> **Why `/api/ingest/path` isn't sandboxed like `FileTools`:** `FileTools.readFile`/`listFiles` are
+> called *by the LLM*, based on its own reasoning about a prompt — including prompts that might
+> contain injected instructions from a retrieved document. Those stay locked to the project
+> directory. `/api/ingest/path` is called *by the human* pasting a path into their own locally-running
+> app — the same trust level as opening a file in a text editor. That's also why `server.address` is
+> pinned to `127.0.0.1`: this endpoint would be a real problem if it were reachable from other
+> devices on the network.
 | `GET` | `/api/health` | — | Checks Ollama reachability, active model, voice status |
 | `GET` | `/api/voice/status` | — | Whether whisper.cpp/Piper are installed & enabled |
 | `POST` | `/api/voice/transcribe` | multipart `audio` (wav) | Speech → text |
@@ -297,7 +321,8 @@ export PATH="$HOME/.local/ollama/bin:$PATH"   # add to ~/.bashrc to persist
 | `assistant.rag.code-path` | `./data/code` | Folder scanned for source code |
 | `assistant.rag.chunk-size` / `chunk-overlap` | `500` / `50` | Text splitting for embeddings |
 | `assistant.rag.max-results` / `min-score` | `5` / `0.6` | Retrieval cutoffs |
-| `assistant.files.allowed-root` | `.` | Sandbox root for `readFile`/`listFiles` |
+| `assistant.files.allowed-root` | `.` | Sandbox root for the LLM's `readFile`/`listFiles` **tool calls** |
+| `server.address` | `127.0.0.1` | Binds to localhost only — deliberate, since `/api/ingest/path` can read any file this OS user can access; don't widen this without adding auth |
 | `assistant.web-search.enabled` | `false` | Turn on `searchWeb` (needs the key below); `searchWikipedia` always works regardless |
 | `assistant.web-search.tavily-api-key` | `""` | Free key from [app.tavily.com](https://app.tavily.com) |
 | `assistant.voice.enabled` | `false` | Turn on after running `setup_voice.sh` |

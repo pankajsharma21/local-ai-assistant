@@ -57,9 +57,23 @@
     padding: 0 18px; border-radius: 10px; border: none; background: var(--accent); color: white;
     font-size: 14px; cursor: pointer;
   }
-  #mic { padding: 0 14px; background: var(--panel); border: 1px solid var(--border); color: var(--text); }
+  #mic, #attach { padding: 0 14px; background: var(--panel); border: 1px solid var(--border); color: var(--text); }
   #mic.recording { background: var(--bad); color: white; }
+  #attach:hover, #mic:hover { border-color: var(--accent); }
   .empty { color: var(--muted); font-size: 13px; text-align: center; margin-top: 40px; }
+  .path-row { display: flex; gap: 6px; margin-bottom: 4px; }
+  .path-row input {
+    flex: 1; min-width: 0; padding: 8px 9px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); font-size: 12px;
+  }
+  .path-row input:focus { outline: none; border-color: var(--accent); }
+  .path-row button {
+    width: auto; margin-bottom: 0; padding: 8px 12px; white-space: nowrap;
+  }
+  .msg .attachment {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; margin-top: 6px;
+  }
 </style>
 </head>
 <body>
@@ -71,9 +85,14 @@
 <div class="layout">
   <aside class="sidebar">
     <h2>Knowledge</h2>
+    <div class="path-row">
+      <input id="pathInput" placeholder="/any/path/to/file-or-folder" autocomplete="off" />
+      <button id="ingestPathBtn">Ingest</button>
+    </div>
+    <div class="hint">Paste any file or folder path on this machine — not limited to <code>data/docs</code>. Or use the 📎 button below the chat box to pick a file via your OS file dialog.</div>
     <button id="ingestDocs">📄 Ingest docs (./data/docs)</button>
     <button id="ingestCode">💻 Ingest code (./data/code)</button>
-    <div class="hint">Drop PDFs/notes into <code>data/docs</code> or point <code>assistant.rag.code-path</code> at a repo, then click ingest. Ask about them below — the model picks the right tool itself.</div>
+    <div class="hint">These two re-scan their configured default folders. Ask about ingested content below — the model picks the right tool itself.</div>
 
     <h2>Session</h2>
     <button id="resetSession">🔄 New conversation</button>
@@ -88,6 +107,8 @@
   <main>
     <div id="chat"><div class="empty">Ask anything — general knowledge, your documents, or your code.</div></div>
     <form id="composer">
+      <button type="button" id="attach" title="Attach a document (opens your file picker)">📎</button>
+      <input type="file" id="fileInput" accept=".pdf,.txt,.md,.markdown,.csv,.json,.yml,.yaml" hidden />
       <button type="button" id="mic" title="Voice input">🎤</button>
       <input id="input" autocomplete="off" placeholder="Ask something..." />
       <button class="send" type="submit">Send</button>
@@ -152,6 +173,60 @@ async function runIngest(url, label) {
 }
 
 document.getElementById('resetSession').addEventListener('click', () => location.reload());
+
+// --- Attach a file from anywhere via the OS file picker (like ChatGPT/Claude's attach button) ---
+const attachBtn = document.getElementById('attach');
+const fileInput = document.getElementById('fileInput');
+attachBtn.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', async () => {
+  const file = fileInput.files[0];
+  fileInput.value = ''; // allow re-selecting the same file later
+  if (!file) return;
+
+  addMessage('user', '');
+  chat.lastElementChild.innerHTML = `<span class="role">You</span><span class="attachment">📎 ${escapeHtml(file.name)}</span>`;
+  addMessage('bot', `…ingesting ${escapeHtml(file.name)}…`);
+  const placeholder = chat.lastElementChild;
+
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch('/api/ingest/upload', { method: 'POST', body: form });
+    const data = await res.json();
+    placeholder.remove();
+    addMessage('bot', res.ok
+      ? `Got it — "${file.name}" is indexed. Ask me anything about it.`
+      : `Couldn't ingest "${file.name}": ${data.message ?? 'unknown error'}`);
+  } catch (err) {
+    placeholder.remove();
+    addMessage('bot', 'Upload error: ' + err.message);
+  }
+});
+
+// --- Ingest by pasting an absolute path (file or folder), from anywhere on disk ---
+document.getElementById('ingestPathBtn').addEventListener('click', async () => {
+  const pathInput = document.getElementById('pathInput');
+  const path = pathInput.value.trim();
+  if (!path) return;
+  const btn = document.getElementById('ingestPathBtn');
+  const original = btn.textContent;
+  btn.textContent = '…'; btn.disabled = true;
+  try {
+    const res = await fetch('/api/ingest/path', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path })
+    });
+    const data = await res.json();
+    addMessage('bot', res.ok
+      ? `Ingested ${data.filesIngested} file(s) from ${path}.`
+      : `Couldn't ingest ${path}: ${data.message ?? 'unknown error'}`);
+    if (res.ok) pathInput.value = '';
+  } catch (err) {
+    addMessage('bot', 'Ingest error: ' + err.message);
+  } finally {
+    btn.textContent = original; btn.disabled = false;
+  }
+});
 
 async function checkHealth() {
   const dot = document.getElementById('statusDot');
