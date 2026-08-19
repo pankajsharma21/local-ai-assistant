@@ -28,6 +28,7 @@ run the model *and* the retrieval pipeline entirely on your own hardware.
 | 🔍 **Live web search** | Opt-in (needs a free Tavily key) — real-time answers for anything current/breaking |
 | 🎤 **Voice** | Speak your question, hear the answer spoken back — same brain, mic/speaker wrapper |
 | 🔒 **Local-by-default** | LLM via Ollama, embeddings run in-process in the JVM, vector store is a local JSON file — Wikipedia/web-search are the only calls that leave localhost, and only when a question needs them |
+| 🖌️ **Modern chat UI** | Markdown-rendered replies, auto-growing composer, animated typing indicator, suggested-prompt empty state, one-click copy — styled after ChatGPT/Claude, not a form-and-textarea demo |
 
 ---
 
@@ -173,7 +174,8 @@ src/main/java/com/pankaj/localai/
 
 src/main/resources/
 ├── application.yml                all configuration (models, paths, voice toggle)
-└── static/index.html              single-page chat UI (light/dark aware)
+└── static/index.html              chat UI: markdown rendering, avatars, auto-grow composer,
+                                    typing indicator, suggested prompts, copy button (light/dark aware)
 
 data/
 ├── docs/       <- put your PDFs/notes here (sample-notes.md included)

@@ -4,115 +4,286 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Local AI Assistant</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🖥️</text></svg>">
 <style>
   :root {
-    --bg: #0f1115; --panel: #161922; --border: #262b38; --text: #e8eaf0; --muted: #8b93a7;
-    --accent: #5b8cff; --user-bubble: #24304a; --bot-bubble: #1d2130; --ok: #4ade80; --bad: #f87171;
+    --bg: #0e0f13; --surface: #0e0f13; --panel: #16181f; --panel-2: #1b1e27; --border: #262a35;
+    --text: #eceef2; --text-muted: #8b93a7; --text-faint: #5c6376;
+    --accent: #6d8bff; --accent-hover: #8aa2ff; --accent-soft: rgba(109,139,255,.14);
+    --user-bubble: #263457; --ok: #4ade80; --bad: #f87171; --warn: #fbbf24;
+    --shadow: 0 8px 24px rgba(0,0,0,.28);
+    --radius-lg: 18px; --radius-md: 12px; --radius-sm: 8px;
   }
   @media (prefers-color-scheme: light) {
     :root {
-      --bg: #f5f6f9; --panel: #ffffff; --border: #e2e5ec; --text: #1a1d29; --muted: #6b7280;
-      --accent: #3b6fe0; --user-bubble: #dde6ff; --bot-bubble: #f0f1f5; --ok: #16a34a; --bad: #dc2626;
+      --bg: #ffffff; --surface: #ffffff; --panel: #f7f8fa; --panel-2: #eef0f4; --border: #e4e7ee;
+      --text: #1a1d29; --text-muted: #6b7280; --text-faint: #9aa1b0;
+      --accent: #3b62e0; --accent-hover: #2d4fc4; --accent-soft: rgba(59,98,224,.08);
+      --user-bubble: #e3e9ff; --ok: #16a34a; --bad: #dc2626; --warn: #d97706;
+      --shadow: 0 8px 24px rgba(20,20,40,.08);
     }
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
-    margin: 0; font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column;
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text); display: flex; flex-direction: column; overflow: hidden;
   }
+  svg { display: block; }
+  button { font-family: inherit; }
+
+  /* ---------- Header ---------- */
   header {
-    padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px;
+    height: 56px; flex-shrink: 0; padding: 0 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px; background: var(--surface);
   }
-  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
-  header .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-  header .dot.ok { background: var(--ok); }
-  header .dot.bad { background: var(--bad); }
-  header .status { font-size: 12px; color: var(--muted); }
-  .layout { flex: 1; display: flex; overflow: hidden; }
+  .brand { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 14.5px; }
+  .brand .mark {
+    width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--accent), #9b6dff); color: white; flex-shrink: 0;
+  }
+  .header-spacer { flex: 1; }
+  .status-pill {
+    display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-muted);
+    padding: 5px 11px 5px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); flex-shrink: 0; transition: background .2s; }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .dot.bad { background: var(--bad); }
+
+  /* ---------- Layout ---------- */
+  .layout { flex: 1; display: flex; min-height: 0; }
   .sidebar {
-    width: 260px; border-right: 1px solid var(--border); padding: 16px; overflow-y: auto; flex-shrink: 0;
+    width: 272px; flex-shrink: 0; border-right: 1px solid var(--border); background: var(--panel);
+    display: flex; flex-direction: column; padding: 14px 14px 0;
   }
-  .sidebar h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 8px; }
-  .sidebar button {
-    width: 100%; margin-bottom: 8px; padding: 9px 10px; background: var(--panel); border: 1px solid var(--border);
-    color: var(--text); border-radius: 8px; cursor: pointer; font-size: 13px; text-align: left;
+  .sidebar-scroll { flex: 1; overflow-y: auto; padding-bottom: 14px; }
+  .new-chat-btn {
+    width: 100%; display: flex; align-items: center; gap: 9px; padding: 10px 12px; margin-bottom: 16px;
+    border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); font-size: 13.5px; font-weight: 500; cursor: pointer; transition: border-color .15s, background .15s;
   }
-  .sidebar button:hover { border-color: var(--accent); }
-  .sidebar .hint { font-size: 12px; color: var(--muted); margin: 4px 0 18px; line-height: 1.5; }
-  main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-  #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
-  .msg { max-width: 70%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
-  .msg.user { align-self: flex-end; background: var(--user-bubble); }
-  .msg.bot { align-self: flex-start; background: var(--bot-bubble); border: 1px solid var(--border); }
-  .msg .role { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
-  form#composer {
-    display: flex; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--border);
+  .new-chat-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .sidebar h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint);
+    margin: 18px 0 8px; font-weight: 600;
   }
-  #input {
-    flex: 1; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--border);
-    background: var(--panel); color: var(--text); font-size: 14px;
+  .sidebar h2:first-of-type { margin-top: 0; }
+  .icon-row-btn {
+    width: 100%; display: flex; align-items: center; gap: 9px; padding: 8px 9px; margin-bottom: 4px;
+    background: transparent; border: 1px solid transparent; color: var(--text); border-radius: var(--radius-sm);
+    cursor: pointer; font-size: 13px; text-align: left; transition: background .12s;
   }
-  #input:focus { outline: none; border-color: var(--accent); }
-  button.send, #mic {
-    padding: 0 18px; border-radius: 10px; border: none; background: var(--accent); color: white;
-    font-size: 14px; cursor: pointer;
-  }
-  #mic, #attach { padding: 0 14px; background: var(--panel); border: 1px solid var(--border); color: var(--text); }
-  #mic.recording { background: var(--bad); color: white; }
-  #attach:hover, #mic:hover { border-color: var(--accent); }
-  .empty { color: var(--muted); font-size: 13px; text-align: center; margin-top: 40px; }
-  .path-row { display: flex; gap: 6px; margin-bottom: 4px; }
+  .icon-row-btn:hover { background: var(--panel-2); }
+  .icon-row-btn svg { flex-shrink: 0; color: var(--text-muted); }
+  .icon-row-btn .sub { color: var(--text-faint); font-size: 11px; margin-left: auto; white-space: nowrap; }
+  .hint { font-size: 12px; color: var(--text-faint); margin: 6px 2px 10px; line-height: 1.5; }
+  .hint code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+
+  .path-row { display: flex; gap: 6px; margin-bottom: 6px; }
   .path-row input {
-    flex: 1; min-width: 0; padding: 8px 9px; border-radius: 8px; border: 1px solid var(--border);
-    background: var(--panel); color: var(--text); font-size: 12px;
+    flex: 1; min-width: 0; padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); font-size: 12px;
   }
   .path-row input:focus { outline: none; border-color: var(--accent); }
   .path-row button {
-    width: auto; margin-bottom: 0; padding: 8px 12px; white-space: nowrap;
+    padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); font-size: 12px; cursor: pointer; white-space: nowrap;
   }
-  .msg .attachment {
-    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted);
-    border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; margin-top: 6px;
+  .path-row button:hover { border-color: var(--accent); color: var(--accent); }
+
+  .status-row {
+    display: flex; align-items: center; gap: 8px; padding: 6px 2px; font-size: 12.5px; color: var(--text-muted);
   }
+  .status-row .dot { flex-shrink: 0; }
+  .status-row .label { flex: 1; }
+
+  .sidebar-footer {
+    flex-shrink: 0; padding: 10px 2px 14px; border-top: 1px solid var(--border);
+    font-size: 11px; color: var(--text-faint); display: flex; justify-content: space-between;
+  }
+
+  /* ---------- Main / chat ---------- */
+  main { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+  #chatScroll { flex: 1; overflow-y: auto; }
+  #chat { max-width: 760px; margin: 0 auto; padding: 24px 24px 12px; display: flex; flex-direction: column; gap: 22px; min-height: 100%; }
+
+  .empty-state {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: 6px; padding: 20px;
+  }
+  .empty-state .mark {
+    width: 52px; height: 52px; border-radius: 16px; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--accent), #9b6dff); color: white; margin-bottom: 10px;
+  }
+  .empty-state h2 { margin: 0; font-size: 19px; font-weight: 600; }
+  .empty-state p { margin: 4px 0 20px; color: var(--text-muted); font-size: 13.5px; }
+  .prompt-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 560px; }
+  .prompt-chip {
+    padding: 9px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel);
+    color: var(--text); font-size: 12.5px; cursor: pointer; transition: border-color .15s, transform .1s;
+  }
+  .prompt-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .prompt-chip:active { transform: scale(.97); }
+
+  .row { display: flex; gap: 12px; align-items: flex-start; animation: rise .22s ease-out; }
+  .row.user { justify-content: flex-end; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .avatar {
+    width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; color: white;
+  }
+  .row.assistant .avatar { background: linear-gradient(135deg, var(--accent), #9b6dff); }
+  .row.user .avatar { background: var(--panel-2); color: var(--text-muted); border: 1px solid var(--border); }
+  .bubble-col { display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: calc(100% - 46px); }
+  .row.user .bubble-col { align-items: flex-end; }
+  .content {
+    font-size: 14.5px; line-height: 1.62; word-wrap: break-word;
+  }
+  .row.user .content {
+    background: var(--user-bubble); padding: 9px 14px; border-radius: var(--radius-md) var(--radius-md) 4px var(--radius-md);
+  }
+  .content p { margin: 0 0 10px; }
+  .content p:last-child { margin-bottom: 0; }
+  .content ul, .content ol { margin: 0 0 10px; padding-left: 22px; }
+  .content code {
+    background: var(--panel-2); padding: 1.5px 5px; border-radius: 4px; font-size: 13px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .content pre {
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 12px 14px; overflow-x: auto; margin: 0 0 10px;
+  }
+  .content pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.55; }
+  .attachment-chip {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted);
+    border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; background: var(--panel);
+  }
+  .row-actions { display: flex; gap: 4px; opacity: 0; transition: opacity .12s; }
+  .row.assistant:hover .row-actions { opacity: 1; }
+  .icon-btn {
+    width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 6px;
+    border: none; background: transparent; color: var(--text-faint); cursor: pointer;
+  }
+  .icon-btn:hover { background: var(--panel-2); color: var(--text); }
+
+  .typing-dots { display: flex; gap: 4px; padding: 6px 0; align-items: center; }
+  .typing-dots span {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--text-faint);
+    animation: bounce 1.2s infinite ease-in-out;
+  }
+  .typing-dots span:nth-child(2) { animation-delay: .15s; }
+  .typing-dots span:nth-child(3) { animation-delay: .3s; }
+  @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+  /* ---------- Composer ---------- */
+  .composer-wrap { padding: 12px 24px 16px; flex-shrink: 0; }
+  .composer {
+    max-width: 760px; margin: 0 auto; display: flex; align-items: flex-end; gap: 6px;
+    border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel);
+    padding: 6px 6px 6px 8px; box-shadow: var(--shadow); transition: border-color .15s;
+  }
+  .composer:focus-within { border-color: var(--accent); }
+  #input {
+    flex: 1; min-width: 0; resize: none; border: none; background: transparent; color: var(--text);
+    font-size: 14.5px; line-height: 1.5; padding: 8px 4px; max-height: 160px; font-family: inherit;
+  }
+  #input:focus { outline: none; }
+  #input::placeholder { color: var(--text-faint); }
+  .composer-btn {
+    width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; border: none; background: transparent;
+    color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background .12s, color .12s;
+  }
+  .composer-btn:hover { background: var(--panel-2); color: var(--text); }
+  .composer-btn.recording { background: var(--bad); color: white; }
+  .send-btn {
+    background: var(--accent); color: white;
+  }
+  .send-btn:hover { background: var(--accent-hover); color: white; }
+  .send-btn:disabled { background: var(--panel-2); color: var(--text-faint); cursor: default; }
+  .composer-hint { text-align: center; font-size: 11px; color: var(--text-faint); margin-top: 9px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>🖥️ Local AI Assistant</h1>
-  <div class="dot" id="statusDot"></div>
-  <div class="status" id="statusText">checking...</div>
+  <div class="brand">
+    <span class="mark">🖥️</span>
+    <span>Local AI Assistant</span>
+  </div>
+  <div class="header-spacer"></div>
+  <div class="status-pill"><span class="dot" id="statusDot"></span><span id="statusText">checking…</span></div>
 </header>
 <div class="layout">
   <aside class="sidebar">
-    <h2>Knowledge</h2>
-    <div class="path-row">
-      <input id="pathInput" placeholder="/any/path/to/file-or-folder" autocomplete="off" />
-      <button id="ingestPathBtn">Ingest</button>
+    <button class="new-chat-btn" id="resetSession">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      New conversation
+    </button>
+    <div class="sidebar-scroll">
+      <h2>Knowledge</h2>
+      <div class="path-row">
+        <input id="pathInput" placeholder="/any/path/to/file-or-folder" autocomplete="off" />
+        <button id="ingestPathBtn">Ingest</button>
+      </div>
+      <div class="hint">Paste any file/folder path on this machine, or use the 📎 button below the chat box to pick one via your OS file dialog.</div>
+
+      <button class="icon-row-btn" id="ingestDocs">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+        Ingest docs folder <span class="sub">./data/docs</span>
+      </button>
+      <button class="icon-row-btn" id="ingestCode">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
+        Ingest code folder <span class="sub">./src</span>
+      </button>
+      <div class="hint">These re-scan their configured default folders. Ask about ingested content below — the model picks the right tool itself.</div>
+
+      <h2>Connections</h2>
+      <div class="status-row"><span class="dot" id="ollamaDot"></span><span class="label" id="ollamaLabel">Ollama</span></div>
+      <div class="status-row"><span class="dot" id="webSearchDot"></span><span class="label">Web search</span></div>
+      <div class="hint" id="webSearchHint">Checking…</div>
+      <div class="status-row"><span class="dot" id="voiceDot"></span><span class="label">Voice</span></div>
+      <div class="hint" id="voiceHint">Checking…</div>
     </div>
-    <div class="hint">Paste any file or folder path on this machine — not limited to <code>data/docs</code>. Or use the 📎 button below the chat box to pick a file via your OS file dialog.</div>
-    <button id="ingestDocs">📄 Ingest docs (./data/docs)</button>
-    <button id="ingestCode">💻 Ingest code (./data/code)</button>
-    <div class="hint">These two re-scan their configured default folders. Ask about ingested content below — the model picks the right tool itself.</div>
-
-    <h2>Session</h2>
-    <button id="resetSession">🔄 New conversation</button>
-    <div class="hint">Session id: <span id="sessionIdLabel"></span></div>
-
-    <h2>Web search</h2>
-    <div class="hint" id="webSearchHint">checking web search status...</div>
-
-    <h2>Voice</h2>
-    <div class="hint" id="voiceHint">checking voice status...</div>
+    <div class="sidebar-footer">
+      <span>Session <span id="sessionIdLabel"></span></span>
+      <span>100% local</span>
+    </div>
   </aside>
   <main>
-    <div id="chat"><div class="empty">Ask anything — general knowledge, your documents, or your code.</div></div>
-    <form id="composer">
-      <button type="button" id="attach" title="Attach a document (opens your file picker)">📎</button>
-      <input type="file" id="fileInput" accept=".pdf,.txt,.md,.markdown,.csv,.json,.yml,.yaml" hidden />
-      <button type="button" id="mic" title="Voice input">🎤</button>
-      <input id="input" autocomplete="off" placeholder="Ask something..." />
-      <button class="send" type="submit">Send</button>
-    </form>
+    <div id="chatScroll">
+      <div id="chat">
+        <div class="empty-state" id="emptyState">
+          <div class="mark">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h.01M16 16h.01"/></svg>
+          </div>
+          <h2>Ask me anything</h2>
+          <p>General knowledge, your documents, your code, or anything current — all running on your machine.</p>
+          <div class="prompt-chips">
+            <button class="prompt-chip" data-prompt="What is the latest Java LTS version?">🌐 What's the latest Java LTS version?</button>
+            <button class="prompt-chip" data-prompt="What have I ingested into your documents so far?">📄 What's in my ingested documents?</button>
+            <button class="prompt-chip" data-prompt="Explain how this codebase is structured.">💻 Explain this codebase</button>
+            <button class="prompt-chip" data-prompt="Tell me an interesting fact about local AI models.">💬 Tell me something interesting</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="composer-wrap">
+      <form class="composer" id="composer">
+        <button type="button" class="composer-btn" id="attach" title="Attach a document">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        </button>
+        <input type="file" id="fileInput" accept=".pdf,.txt,.md,.markdown,.csv,.json,.yml,.yaml" hidden />
+        <textarea id="input" rows="1" autocomplete="off" placeholder="Message Local AI Assistant…"></textarea>
+        <button type="button" class="composer-btn" id="mic" title="Voice input">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+        </button>
+        <button type="submit" class="composer-btn send-btn" id="sendBtn" title="Send" disabled>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        </button>
+      </form>
+      <div class="composer-hint">Runs entirely offline on your machine · it can still be wrong — verify anything important.</div>
+    </div>
   </main>
 </div>
 <script>
@@ -120,55 +291,162 @@ const sessionId = crypto.randomUUID();
 document.getElementById('sessionIdLabel').textContent = sessionId.slice(0, 8);
 
 const chat = document.getElementById('chat');
-function addMessage(role, text) {
-  document.querySelector('.empty')?.remove();
-  const div = document.createElement('div');
-  div.className = 'msg ' + role;
-  div.innerHTML = `<span class="role">${role === 'user' ? 'You' : 'Assistant'}</span>` + escapeHtml(text);
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
-}
+const chatScroll = document.getElementById('chatScroll');
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('sendBtn');
+
 function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-document.getElementById('composer').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const input = document.getElementById('input');
-  const message = input.value.trim();
-  if (!message) return;
-  addMessage('user', message);
+// Minimal, safe markdown renderer: HTML-escape first, then reintroduce a small set of tags.
+function renderMarkdown(raw) {
+  let html = escapeHtml(raw);
+  html = html.replace(/```[a-zA-Z0-9]*\n?([\s\S]*?)```/g, (_, code) => `<pre><code>${code.trimEnd()}</code></pre>`);
+  html = html.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  html = html.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/(^|\s)_([^_\n]+)_(?=\s|$)/g, '$1<em>$2</em>');
+  html = html.replace(/(?:^|\n)((?:[-*] .+(?:\n|$))+)/g, (block) => {
+    const items = block.trim().split('\n').map(l => `<li>${l.replace(/^[-*]\s+/, '')}</li>`).join('');
+    return `\n<ul>${items}</ul>\n`;
+  });
+  return html.split(/\n\n+/).map(p => {
+    if (/^\s*<(ul|pre)/.test(p)) return p;
+    return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+  }).join('');
+}
+
+function scrollToBottom() {
+  chatScroll.scrollTop = chatScroll.scrollHeight;
+}
+
+function removeEmptyState() {
+  document.getElementById('emptyState')?.remove();
+}
+
+/** Adds a message row. Returns the row element so callers can replace it later (e.g. typing -> reply). */
+function addMessage(role, { text, html, attachmentName } = {}) {
+  removeEmptyState();
+  const row = document.createElement('div');
+  row.className = 'row ' + role;
+
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar';
+  avatar.textContent = role === 'user' ? 'You' : '🖥️';
+  if (role === 'user') avatar.style.fontSize = '10px';
+
+  const col = document.createElement('div');
+  col.className = 'bubble-col';
+
+  const content = document.createElement('div');
+  content.className = 'content';
+  if (attachmentName) {
+    content.innerHTML = `<span class="attachment-chip">📎 ${escapeHtml(attachmentName)}</span>`;
+  } else if (html !== undefined) {
+    content.innerHTML = html;
+  } else {
+    content.innerHTML = `<p>${escapeHtml(text ?? '')}</p>`;
+  }
+  col.appendChild(content);
+
+  if (role === 'assistant') {
+    const actions = document.createElement('div');
+    actions.className = 'row-actions';
+    const copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = 'icon-btn';
+    copyBtn.title = 'Copy';
+    copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(text ?? content.innerText);
+      copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+      setTimeout(() => copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>', 1500);
+    });
+    actions.appendChild(copyBtn);
+    col.appendChild(actions);
+  }
+
+  if (role === 'user') {
+    row.appendChild(col);
+    row.appendChild(avatar);
+  } else {
+    row.appendChild(avatar);
+    row.appendChild(col);
+  }
+  chat.appendChild(row);
+  scrollToBottom();
+  return row;
+}
+
+function addTypingRow() {
+  removeEmptyState();
+  const row = document.createElement('div');
+  row.className = 'row assistant';
+  row.innerHTML = `<div class="avatar">🖥️</div><div class="bubble-col"><div class="content"><div class="typing-dots"><span></span><span></span><span></span></div></div></div>`;
+  chat.appendChild(row);
+  scrollToBottom();
+  return row;
+}
+
+async function sendMessage(message) {
+  if (!message.trim()) return;
+  addMessage('user', { text: message });
   input.value = '';
-  addMessage('bot', '…thinking (local model, first token can take a few seconds)…');
-  const thinkingEl = chat.lastElementChild;
+  autoGrow();
+  updateSendState();
+  const typingRow = addTypingRow();
   try {
     const res = await fetch('/api/chat', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ sessionId, message })
     });
     const data = await res.json();
-    thinkingEl.remove();
-    addMessage('bot', data.reply ?? JSON.stringify(data));
+    const reply = data.reply ?? JSON.stringify(data);
+    typingRow.remove();
+    addMessage('assistant', { text: reply, html: renderMarkdown(reply) });
   } catch (err) {
-    thinkingEl.remove();
-    addMessage('bot', 'Error: ' + err.message);
+    typingRow.remove();
+    addMessage('assistant', { text: 'Error: ' + err.message });
   }
+}
+
+document.getElementById('composer').addEventListener('submit', (e) => {
+  e.preventDefault();
+  sendMessage(input.value);
 });
 
-document.getElementById('ingestDocs').addEventListener('click', () => runIngest('/api/ingest/docs', 'docs'));
+// Auto-growing textarea + Enter-to-send (Shift+Enter for newline)
+function autoGrow() {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+}
+function updateSendState() {
+  sendBtn.disabled = !input.value.trim();
+}
+input.addEventListener('input', () => { autoGrow(); updateSendState(); });
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage(input.value);
+  }
+});
+updateSendState();
+
+// Suggested prompt chips
+document.querySelectorAll('.prompt-chip').forEach(chip => {
+  chip.addEventListener('click', () => sendMessage(chip.dataset.prompt));
+});
+
+// --- Ingest: default folders ---
+document.getElementById('ingestDocs').addEventListener('click', () => runIngest('/api/ingest/docs', 'document'));
 document.getElementById('ingestCode').addEventListener('click', () => runIngest('/api/ingest/code', 'code'));
 async function runIngest(url, label) {
-  const btn = label === 'docs' ? document.getElementById('ingestDocs') : document.getElementById('ingestCode');
-  const original = btn.textContent;
-  btn.textContent = 'Ingesting...'; btn.disabled = true;
   try {
     const res = await fetch(url, { method: 'POST' });
     const data = await res.json();
-    addMessage('bot', `Ingested ${data.filesIngested} ${label} file(s).`);
+    addMessage('assistant', { text: `Ingested ${data.filesIngested} ${label} file(s).` });
   } catch (err) {
-    addMessage('bot', 'Ingest error: ' + err.message);
-  } finally {
-    btn.textContent = original; btn.disabled = false;
+    addMessage('assistant', { text: 'Ingest error: ' + err.message });
   }
 }
 
@@ -180,26 +458,24 @@ const fileInput = document.getElementById('fileInput');
 attachBtn.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', async () => {
   const file = fileInput.files[0];
-  fileInput.value = ''; // allow re-selecting the same file later
+  fileInput.value = '';
   if (!file) return;
 
-  addMessage('user', '');
-  chat.lastElementChild.innerHTML = `<span class="role">You</span><span class="attachment">📎 ${escapeHtml(file.name)}</span>`;
-  addMessage('bot', `…ingesting ${escapeHtml(file.name)}…`);
-  const placeholder = chat.lastElementChild;
-
+  addMessage('user', { attachmentName: file.name });
+  const typingRow = addTypingRow();
+  typingRow.querySelector('.content').innerHTML = `<span style="font-size:13px;color:var(--text-muted)">Ingesting…</span>`;
   try {
     const form = new FormData();
     form.append('file', file);
     const res = await fetch('/api/ingest/upload', { method: 'POST', body: form });
     const data = await res.json();
-    placeholder.remove();
-    addMessage('bot', res.ok
+    typingRow.remove();
+    addMessage('assistant', { text: res.ok
       ? `Got it — "${file.name}" is indexed. Ask me anything about it.`
-      : `Couldn't ingest "${file.name}": ${data.message ?? 'unknown error'}`);
+      : `Couldn't ingest "${file.name}": ${data.message ?? 'unknown error'}` });
   } catch (err) {
-    placeholder.remove();
-    addMessage('bot', 'Upload error: ' + err.message);
+    typingRow.remove();
+    addMessage('assistant', { text: 'Upload error: ' + err.message });
   }
 });
 
@@ -217,39 +493,50 @@ document.getElementById('ingestPathBtn').addEventListener('click', async () => {
       body: JSON.stringify({ path })
     });
     const data = await res.json();
-    addMessage('bot', res.ok
+    addMessage('assistant', { text: res.ok
       ? `Ingested ${data.filesIngested} file(s) from ${path}.`
-      : `Couldn't ingest ${path}: ${data.message ?? 'unknown error'}`);
+      : `Couldn't ingest ${path}: ${data.message ?? 'unknown error'}` });
     if (res.ok) pathInput.value = '';
   } catch (err) {
-    addMessage('bot', 'Ingest error: ' + err.message);
+    addMessage('assistant', { text: 'Ingest error: ' + err.message });
   } finally {
     btn.textContent = original; btn.disabled = false;
   }
 });
 
 async function checkHealth() {
-  const dot = document.getElementById('statusDot');
-  const text = document.getElementById('statusText');
+  const headerDot = document.getElementById('statusDot');
+  const headerText = document.getElementById('statusText');
+  const ollamaDot = document.getElementById('ollamaDot');
+  const webDot = document.getElementById('webSearchDot');
+  const voiceDot = document.getElementById('voiceDot');
   try {
     const res = await fetch('/api/health');
     const data = await res.json();
-    dot.className = 'dot ' + (data.ollamaReachable ? 'ok' : 'bad');
-    text.textContent = data.ollamaReachable
-      ? `Ollama reachable · model: ${data.chatModel}`
-      : `Ollama NOT reachable — is 'ollama serve' running?`;
-    document.getElementById('voiceHint').textContent = data.voice;
-    document.getElementById('webSearchHint').textContent = data.webSearch;
+    const up = data.ollamaReachable;
+    const webUp = !!data.webSearch && data.webSearch.startsWith('Live web search enabled');
+    const voiceUp = !!data.voice && data.voice.startsWith('Voice is enabled and all');
+
+    headerDot.className = 'dot ' + (up ? 'ok' : 'bad');
+    headerText.textContent = up ? data.chatModel : 'Ollama unreachable';
+    ollamaDot.className = 'dot ' + (up ? 'ok' : 'bad');
+    document.getElementById('ollamaLabel').textContent = up ? `Ollama · ${data.chatModel}` : 'Ollama (not running)';
+    webDot.className = 'dot' + (webUp ? ' ok' : '');
+    voiceDot.className = 'dot' + (voiceUp ? ' ok' : '');
+    document.getElementById('webSearchHint').textContent = data.webSearch ?? '';
+    document.getElementById('voiceHint').textContent = data.voice ?? '';
   } catch {
-    dot.className = 'dot bad';
-    text.textContent = 'Backend not reachable';
+    headerDot.className = 'dot bad';
+    headerText.textContent = 'backend unreachable';
+    ollamaDot.className = webDot.className = voiceDot.className = 'dot bad';
+    document.getElementById('webSearchHint').textContent = document.getElementById('voiceHint').textContent = 'Backend not reachable.';
   }
 }
 checkHealth();
 setInterval(checkHealth, 15000);
 
 // --- Voice input (MediaRecorder -> /api/voice/transcribe) ---
-let mediaRecorder, chunks = [];
+let mediaRecorder, recChunks = [];
 const micBtn = document.getElementById('mic');
 micBtn.addEventListener('click', async () => {
   if (mediaRecorder && mediaRecorder.state === 'recording') {
@@ -258,32 +545,35 @@ micBtn.addEventListener('click', async () => {
   }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    chunks = [];
+    recChunks = [];
     mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+    mediaRecorder.ondataavailable = (e) => recChunks.push(e.data);
     mediaRecorder.onstop = async () => {
       micBtn.classList.remove('recording');
       stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const blob = new Blob(recChunks, { type: 'audio/webm' });
       const form = new FormData();
       form.append('audio', blob, 'input.webm');
-      addMessage('bot', '…transcribing voice input…');
-      const placeholder = chat.lastElementChild;
+      const typingRow = addTypingRow();
+      typingRow.querySelector('.content').innerHTML = `<span style="font-size:13px;color:var(--text-muted)">Transcribing…</span>`;
       try {
         const res = await fetch('/api/voice/transcribe', { method: 'POST', body: form });
         const data = await res.json();
-        placeholder.remove();
-        if (data.error) { addMessage('bot', 'Voice error: ' + data.error); return; }
-        document.getElementById('input').value = data.text;
+        typingRow.remove();
+        if (data.error) { addMessage('assistant', { text: 'Voice error: ' + data.error }); return; }
+        input.value = data.text;
+        autoGrow();
+        updateSendState();
+        input.focus();
       } catch (err) {
-        placeholder.remove();
-        addMessage('bot', 'Voice error: ' + err.message);
+        typingRow.remove();
+        addMessage('assistant', { text: 'Voice error: ' + err.message });
       }
     };
     mediaRecorder.start();
     micBtn.classList.add('recording');
   } catch (err) {
-    addMessage('bot', 'Microphone error: ' + err.message);
+    addMessage('assistant', { text: 'Microphone error: ' + err.message });
   }
 });
 </script>
