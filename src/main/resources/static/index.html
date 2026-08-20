@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Local AI Assistant</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🖥️</text></svg>">
+<title>CHINTU</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👦</text></svg>">
 <style>
   :root {
     --bg: #0e0f13; --surface: #0e0f13; --panel: #16181f; --panel-2: #1b1e27; --border: #262a35;
@@ -83,13 +83,22 @@
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
   .brand .mark {
-    width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
-    background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; flex-shrink: 0;
+    width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(150deg, #ffe3c7, #cfe3ff 75%); flex-shrink: 0; padding: 3px;
     box-shadow: 0 0 0 0 rgba(109,139,255,.5); animation: markGlow 3.5s ease-in-out infinite;
   }
   @keyframes markGlow {
     0%, 100% { box-shadow: 0 2px 10px -2px rgba(109,139,255,.55); }
     50% { box-shadow: 0 2px 18px 1px rgba(176,109,255,.55); }
+  }
+  /* ---------- Chintu mascot (inline SVG face, reused in header/avatars/empty-state) ---------- */
+  .chintu-face { width: 100%; height: 100%; display: block; }
+  .chintu-face .chintu-eyes {
+    transform-box: fill-box; transform-origin: center; animation: chintuBlink 4.2s ease-in-out infinite;
+  }
+  @keyframes chintuBlink {
+    0%, 90%, 100% { transform: scaleY(1); }
+    93%, 96% { transform: scaleY(.12); }
   }
   .header-spacer { flex: 1; }
   .status-pill {
@@ -180,11 +189,25 @@
     text-align: center; gap: 6px; padding: 20px;
   }
   .empty-state .mark {
-    width: 56px; height: 56px; border-radius: 18px; display: flex; align-items: center; justify-content: center;
-    background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; margin-bottom: 12px;
+    width: 68px; height: 68px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(150deg, #ffe3c7, #cfe3ff 75%); margin-bottom: 12px; padding: 6px; position: relative;
     animation: floatMark 4s ease-in-out infinite, markGlow 3.5s ease-in-out infinite;
   }
-  @keyframes floatMark { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+  @keyframes floatMark {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-6px) rotate(-4deg); }
+  }
+  .empty-state .wave {
+    position: absolute; bottom: -2px; right: -6px; font-size: 22px; transform-origin: 70% 70%;
+    animation: wave 2.2s ease-in-out infinite;
+  }
+  @keyframes wave {
+    0%, 100% { transform: rotate(0deg); }
+    15% { transform: rotate(18deg); }
+    30% { transform: rotate(-8deg); }
+    45% { transform: rotate(18deg); }
+    60% { transform: rotate(0deg); }
+  }
   .empty-state h2 {
     margin: 0; font-size: 21px; font-weight: 700;
     background: linear-gradient(100deg, var(--text) 20%, var(--accent) 55%, var(--accent2) 85%);
@@ -212,11 +235,11 @@
   .row.user { justify-content: flex-end; }
   @keyframes rise { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
   .avatar {
-    width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
     font-size: 12px; font-weight: 600; color: white; transition: transform .2s;
   }
   .row.assistant .avatar {
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    background: linear-gradient(150deg, #ffe3c7, #cfe3ff 75%); padding: 3px;
     box-shadow: 0 2px 10px -3px rgba(109,139,255,.6);
   }
   .row.user .avatar { background: var(--panel-2); color: var(--text-muted); border: 1px solid var(--border); }
@@ -308,8 +331,22 @@
 <div class="aurora" aria-hidden="true"><span></span><span></span><span></span></div>
 <header>
   <div class="brand">
-    <span class="mark">🖥️</span>
-    <span class="brand-text">Local AI Assistant</span>
+    <span class="mark">
+      <svg class="chintu-face" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="24" cy="26" r="15" fill="#ffcd9c"/>
+        <path d="M9 22 Q9 6 24 6 Q39 6 39 22 Q39 15 33 13 Q30 18 24 15 Q18 18 15 13 Q9 15 9 22 Z" fill="#2b1c12"/>
+        <circle cx="9.5" cy="26" r="3" fill="#ffcd9c"/>
+        <circle cx="38.5" cy="26" r="3" fill="#ffcd9c"/>
+        <g class="chintu-eyes">
+          <circle cx="18" cy="26" r="2.2" fill="#2a2a2a"/>
+          <circle cx="30" cy="26" r="2.2" fill="#2a2a2a"/>
+        </g>
+        <circle cx="14.5" cy="31" r="2" fill="#ff9d9d" opacity=".55"/>
+        <circle cx="33.5" cy="31" r="2" fill="#ff9d9d" opacity=".55"/>
+        <path d="M17 33 Q24 39 31 33" stroke="#8a4a2a" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>
+    </span>
+    <span class="brand-text">CHINTU</span>
   </div>
   <div class="header-spacer"></div>
   <div class="status-pill"><span class="dot" id="statusDot"></span><span id="statusText">checking…</span></div>
@@ -355,9 +392,22 @@
       <div id="chat">
         <div class="empty-state" id="emptyState">
           <div class="mark">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4M8 16h.01M16 16h.01"/></svg>
+            <svg class="chintu-face" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="24" cy="26" r="15" fill="#ffcd9c"/>
+              <path d="M9 22 Q9 6 24 6 Q39 6 39 22 Q39 15 33 13 Q30 18 24 15 Q18 18 15 13 Q9 15 9 22 Z" fill="#2b1c12"/>
+              <circle cx="9.5" cy="26" r="3" fill="#ffcd9c"/>
+              <circle cx="38.5" cy="26" r="3" fill="#ffcd9c"/>
+              <g class="chintu-eyes">
+                <circle cx="18" cy="26" r="2.2" fill="#2a2a2a"/>
+                <circle cx="30" cy="26" r="2.2" fill="#2a2a2a"/>
+              </g>
+              <circle cx="14.5" cy="31" r="2" fill="#ff9d9d" opacity=".55"/>
+              <circle cx="33.5" cy="31" r="2" fill="#ff9d9d" opacity=".55"/>
+              <path d="M17 33 Q24 39 31 33" stroke="#8a4a2a" stroke-width="2" fill="none" stroke-linecap="round"/>
+            </svg>
+            <span class="wave">👋</span>
           </div>
-          <h2>Ask me anything</h2>
+          <h2>Hi, I'm CHINTU</h2>
           <p>General knowledge, your documents, your code, or anything current — all running on your machine.</p>
           <div class="prompt-chips">
             <button class="prompt-chip" data-prompt="What is the latest Java LTS version?">🌐 What's the latest Java LTS version?</button>
@@ -374,7 +424,7 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
         </button>
         <input type="file" id="fileInput" accept=".pdf,.txt,.md,.markdown,.csv,.json,.yml,.yaml" hidden />
-        <textarea id="input" rows="1" autocomplete="off" placeholder="Message Local AI Assistant…"></textarea>
+        <textarea id="input" rows="1" autocomplete="off" placeholder="Message CHINTU…"></textarea>
         <button type="button" class="composer-btn" id="mic" title="Voice input">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
         </button>
@@ -394,6 +444,21 @@ const chat = document.getElementById('chat');
 const chatScroll = document.getElementById('chatScroll');
 const input = document.getElementById('input');
 const sendBtn = document.getElementById('sendBtn');
+
+// Chintu's face — reused for every assistant avatar (chat rows + typing indicator)
+const CHINTU_FACE_SVG = `<svg class="chintu-face" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="24" cy="26" r="15" fill="#ffcd9c"/>
+  <path d="M9 22 Q9 6 24 6 Q39 6 39 22 Q39 15 33 13 Q30 18 24 15 Q18 18 15 13 Q9 15 9 22 Z" fill="#2b1c12"/>
+  <circle cx="9.5" cy="26" r="3" fill="#ffcd9c"/>
+  <circle cx="38.5" cy="26" r="3" fill="#ffcd9c"/>
+  <g class="chintu-eyes">
+    <circle cx="18" cy="26" r="2.2" fill="#2a2a2a"/>
+    <circle cx="30" cy="26" r="2.2" fill="#2a2a2a"/>
+  </g>
+  <circle cx="14.5" cy="31" r="2" fill="#ff9d9d" opacity=".55"/>
+  <circle cx="33.5" cy="31" r="2" fill="#ff9d9d" opacity=".55"/>
+  <path d="M17 33 Q24 39 31 33" stroke="#8a4a2a" stroke-width="2" fill="none" stroke-linecap="round"/>
+</svg>`;
 
 function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -432,8 +497,12 @@ function addMessage(role, { text, html, attachmentName } = {}) {
 
   const avatar = document.createElement('div');
   avatar.className = 'avatar';
-  avatar.textContent = role === 'user' ? 'You' : '🖥️';
-  if (role === 'user') avatar.style.fontSize = '10px';
+  if (role === 'user') {
+    avatar.textContent = 'You';
+    avatar.style.fontSize = '10px';
+  } else {
+    avatar.innerHTML = CHINTU_FACE_SVG;
+  }
 
   const col = document.createElement('div');
   col.className = 'bubble-col';
@@ -482,7 +551,7 @@ function addTypingRow() {
   removeEmptyState();
   const row = document.createElement('div');
   row.className = 'row assistant';
-  row.innerHTML = `<div class="avatar">🖥️</div><div class="bubble-col"><div class="content"><div class="typing-dots"><span></span><span></span><span></span></div></div></div>`;
+  row.innerHTML = `<div class="avatar">${CHINTU_FACE_SVG}</div><div class="bubble-col"><div class="content"><div class="typing-dots"><span></span><span></span><span></span></div></div></div>`;
   chat.appendChild(row);
   scrollToBottom();
   return row;

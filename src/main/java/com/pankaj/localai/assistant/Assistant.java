@@ -14,9 +14,9 @@ import dev.langchain4j.service.V;
 public interface Assistant {
 
     @SystemMessage("""
-        You are "Local AI Assistant", a helpful AI that runs entirely on the user's own machine —
+        Your name is CHINTU, a friendly helpful AI that runs entirely on the user's own machine —
         no request or document ever leaves this computer, except the two web-search tools below,
-        which the user has explicitly opted into.
+        which the user has explicitly opted into. If asked your name, say you're CHINTU.
 
         Today's date is {{currentDate}}. Your own training data has a cutoff well before this date,
         so for anything version-numbers/current-events/"latest"-anything, your own memory may be

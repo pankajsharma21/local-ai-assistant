@@ -286,6 +286,20 @@ tar --zstd -xf ollama-linux-amd64.tar.zst
 export PATH="$HOME/.local/ollama/bin:$PATH"   # add to ~/.bashrc to persist
 ```
 
+### CPU-only performance is genuinely slow — what actually helps
+On a laptop with no dedicated GPU, expect 15-35s per response with `qwen2.5:7b`, more if the
+machine is under memory pressure (check with `free -h` — swap usage is a strong signal). In order
+of actual measured impact on this project:
+1. **Switch to `llama3.2` (3B)** — the single biggest lever, 3-5x faster, at the cost of less
+   reliable spontaneous tool-calling (see the model-size note above).
+2. **Free up RAM** — close other heavy apps (IDEs, browsers with many tabs). If swap is full,
+   everything on the machine slows down, not just this app.
+3. **Try `OLLAMA_IGPU_ENABLE=1 ollama serve`** if you have an Intel integrated GPU — Ollama disables
+   it by default. Verify it's actually being used with `ollama ps` (look for `100% GPU` in the
+   PROCESSOR column). In our testing this made no measurable difference on an Intel Iris Xe with a
+   7B model — integrated GPUs share system memory bandwidth with the CPU, so don't expect much, but
+   it costs nothing to try on your own hardware.
+
 ---
 
 ## REST API reference
