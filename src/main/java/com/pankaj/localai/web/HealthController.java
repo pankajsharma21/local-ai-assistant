@@ -43,8 +43,7 @@ public class HealthController {
     private String webSearchStatus() {
         var config = props.getWebSearch();
         if (!config.isEnabled() || config.getTavilyApiKey().isBlank()) {
-            return "Live web search disabled — searchWikipedia still works. " +
-                    "Set assistant.web-search.enabled=true + a Tavily key to enable searchWeb.";
+            return "Optional — needs a free Tavily API key. Questions still get current answers via Wikipedia.";
         }
         return "Live web search enabled (Tavily).";
     }
