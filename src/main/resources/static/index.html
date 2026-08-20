@@ -970,6 +970,56 @@ checkHealth();
 setInterval(checkHealth, 15000);
 
 // --- Voice input (MediaRecorder -> /api/voice/transcribe) ---
+//
+// MediaRecorder cannot output WAV directly in any browser - it only produces webm/opus (Chrome) or
+// similar compressed containers. whisper.cpp's audio decoder only understands wav/mp3/flac/ogg, NOT
+// webm, so the raw recorder output can't be sent to it as-is (confirmed: it fails with
+// "failed to read audio file" when tried). Rather than depend on ffmpeg being installed (it isn't,
+// and there's no root access here to install it), decode the recording with the Web Audio API
+// (which CAN read webm/opus, since that's just normal audio playback support) and re-encode the
+// raw PCM samples into a real WAV file ourselves - no extra binary, no server dependency.
+async function blobToWav(blob, targetSampleRate = 16000) {
+  const arrayBuffer = await blob.arrayBuffer();
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  const decodeCtx = new AudioCtx();
+  const decoded = await decodeCtx.decodeAudioData(arrayBuffer);
+  decodeCtx.close();
+
+  // OfflineAudioContext resamples to 16kHz and downmixes to mono in one pass (whisper.cpp expects
+  // 16kHz mono; Web Audio's default mixing rule for a multi-channel source into a 1-channel
+  // destination already averages the channels down for us).
+  const offlineCtx = new OfflineAudioContext(1, Math.ceil(decoded.duration * targetSampleRate), targetSampleRate);
+  const source = offlineCtx.createBufferSource();
+  source.buffer = decoded;
+  source.connect(offlineCtx.destination);
+  source.start();
+  const rendered = await offlineCtx.startRendering();
+  const samples = rendered.getChannelData(0);
+
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+  const writeStr = (offset, s) => { for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i)); };
+  writeStr(0, 'RIFF');
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true);          // fmt chunk size
+  view.setUint16(20, 1, true);           // PCM
+  view.setUint16(22, 1, true);           // mono
+  view.setUint32(24, targetSampleRate, true);
+  view.setUint32(28, targetSampleRate * 2, true); // byte rate (sampleRate * blockAlign)
+  view.setUint16(32, 2, true);           // block align (channels * bytesPerSample)
+  view.setUint16(34, 16, true);          // bits per sample
+  writeStr(36, 'data');
+  view.setUint32(40, samples.length * 2, true);
+  let offset = 44;
+  for (let i = 0; i < samples.length; i++, offset += 2) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
 let mediaRecorder, recChunks = [];
 const micBtn = document.getElementById('mic');
 micBtn.addEventListener('click', async () => {
@@ -985,12 +1035,13 @@ micBtn.addEventListener('click', async () => {
     mediaRecorder.onstop = async () => {
       micBtn.classList.remove('recording');
       stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(recChunks, { type: 'audio/webm' });
-      const form = new FormData();
-      form.append('audio', blob, 'input.webm');
       const typingRow = addTypingRow();
       typingRow.querySelector('.content').innerHTML = `<span style="font-size:13px;color:var(--text-muted)">Transcribing…</span>`;
       try {
+        const rawBlob = new Blob(recChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+        const wavBlob = await blobToWav(rawBlob);
+        const form = new FormData();
+        form.append('audio', wavBlob, 'input.wav');
         const res = await fetch('/api/voice/transcribe', { method: 'POST', body: form });
         const data = await res.json();
         typingRow.remove();
