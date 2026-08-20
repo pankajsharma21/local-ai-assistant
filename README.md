@@ -189,7 +189,7 @@ data/
 scripts/
 ├── run.sh              starts Ollama (if needed) + the app
 ├── pull-models.sh       pulls the configured chat model
-└── setup_voice.sh       one-time build/download for whisper.cpp + Piper
+└── setup_voice.sh       one-time download of prebuilt whisper.cpp + Piper binaries (no compiler needed)
 ```
 
 ---
@@ -274,10 +274,13 @@ noticeably less reliable at choosing to call these tools than a bigger one like 
 
 ### 7. Try voice (optional, one-time setup)
 ```bash
-./scripts/setup_voice.sh                       # builds whisper.cpp, downloads Piper + a voice
-# then set assistant.voice.enabled: true in application.yml and restart
+./scripts/setup_voice.sh   # downloads prebuilt whisper.cpp + Piper binaries and a voice model
+                           # no compiler/cmake needed - both projects ship ready-to-run Linux releases
 curl http://localhost:8088/api/voice/status
 ```
+`assistant.voice.enabled` is already `true` by default — the script just needs to have populated
+`./tools/whisper` and `./tools/piper` first. Click the 🎤 button in the UI, or hit
+`/api/voice/transcribe`, `/api/voice/speak`, `/api/voice/chat` directly.
 
 ### No-root Ollama install
 If you don't have `sudo`, Ollama also ships a portable Linux tarball:
@@ -360,7 +363,7 @@ of actual measured impact on this project:
 | `server.address` | `127.0.0.1` | Binds to localhost only — deliberate, since `/api/ingest/path` can read any file this OS user can access; don't widen this without adding auth |
 | `assistant.web-search.enabled` | `false` | Turn on `searchWeb` (needs the key below); `searchWikipedia` always works regardless |
 | `assistant.web-search.tavily-api-key` | `""` | Free key from [app.tavily.com](https://app.tavily.com) |
-| `assistant.voice.enabled` | `false` | Turn on after running `setup_voice.sh` |
+| `assistant.voice.enabled` | `true` | Actual availability still depends on `setup_voice.sh` having populated `./tools/whisper` + `./tools/piper` — check `/api/voice/status` |
 
 ---
 

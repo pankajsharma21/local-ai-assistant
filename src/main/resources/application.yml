@@ -43,8 +43,8 @@ assistant:
     max-results: 5
 
   voice:
-    enabled: false                              # flip to true after running scripts/setup_voice.sh
-    whisper-binary: ./tools/whisper/main
+    enabled: true
+    whisper-binary: ./tools/whisper/whisper-cli
     whisper-model: ./tools/whisper/models/ggml-base.en.bin
     piper-binary: ./tools/piper/piper
     piper-model: ./tools/piper/voices/en_US-lessac-medium.onnx

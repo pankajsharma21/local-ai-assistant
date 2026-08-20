@@ -69,6 +69,7 @@ public class VoiceService {
                 "-nt" // no timestamps in output
         );
         pb.redirectErrorStream(true);
+        addNativeLibraryPath(pb, config.getWhisperBinary());
         Process process = pb.start();
         String log = new String(process.getInputStream().readAllBytes());
         boolean finished = process.waitFor(120, TimeUnit.SECONDS);
@@ -98,6 +99,7 @@ public class VoiceService {
                 "--output_file", outWav.toString()
         );
         pb.redirectErrorStream(true);
+        addNativeLibraryPath(pb, config.getPiperBinary());
         Process process = pb.start();
         process.getOutputStream().write(text.getBytes());
         process.getOutputStream().close();
@@ -120,5 +122,21 @@ public class VoiceService {
         if (!isAvailable()) {
             throw new IllegalStateException(statusMessage());
         }
+    }
+
+    /**
+     * Both whisper.cpp and Piper ship as prebuilt binary releases with their shared libraries
+     * (libggml*.so, libonnxruntime.so, etc.) sitting right next to the executable rather than
+     * installed system-wide — there's no root access here to put them on the system library path.
+     * Point LD_LIBRARY_PATH at the binary's own directory so the dynamic linker finds them.
+     */
+    private void addNativeLibraryPath(ProcessBuilder pb, String binaryPath) {
+        Path parentDir = Path.of(binaryPath).toAbsolutePath().getParent();
+        if (parentDir == null) {
+            return;
+        }
+        String existing = System.getenv("LD_LIBRARY_PATH");
+        String updated = existing == null || existing.isBlank() ? parentDir.toString() : parentDir + ":" + existing;
+        pb.environment().put("LD_LIBRARY_PATH", updated);
     }
 }
