@@ -29,6 +29,9 @@ run the model *and* the retrieval pipeline entirely on your own hardware.
 | 🎤 **Voice** | Speak your question, hear the answer spoken back — same brain, mic/speaker wrapper |
 | 🔒 **Local-by-default** | LLM via Ollama, embeddings run in-process in the JVM, vector store is a local JSON file — Wikipedia/web-search are the only calls that leave localhost, and only when a question needs them |
 | 🖌️ **Modern chat UI** | Markdown-rendered replies, auto-growing composer, animated typing indicator, suggested-prompt empty state, one-click copy — styled after ChatGPT/Claude, not a form-and-textarea demo |
+| 🗂️ **Recent chats** | Sidebar list of past conversations (saved client-side); click one to resume — server-side memory is keyed by session id, so it's a real continuation, not just a replayed transcript |
+| 📎 **In-chat ingestion** | All document ingestion (upload / docs folder / code folder / arbitrary path) lives behind the composer's attach menu — no separate admin panel |
+| 🔀 **Live model switcher** | Header dropdown lists every model you've pulled in Ollama; switching is instant, no app restart, and conversation memory carries over |
 
 ---
 
@@ -169,7 +172,8 @@ src/main/java/com/pankaj/localai/
 │   └── VoiceController.java       /api/voice/* endpoints
 └── web/
     ├── ChatController.java        POST /api/chat
-    ├── IngestController.java      POST /api/ingest/docs, /api/ingest/code
+    ├── IngestController.java      POST /api/ingest/{docs,code,path,upload}
+    ├── ModelController.java       GET /api/models, POST /api/model (live model switching)
     └── HealthController.java      GET  /api/health
 
 src/main/resources/
@@ -311,6 +315,13 @@ of actual measured impact on this project:
 | `POST` | `/api/ingest/code` | — | (Re)index everything in `assistant.rag.code-path` |
 | `POST` | `/api/ingest/path` | `{"path": "/any/file/or/folder"}` | Index a file or directory from anywhere on disk |
 | `POST` | `/api/ingest/upload` | multipart `file` | Index a file handed to us directly (browser attach button) |
+| `GET` | `/api/models` | — | List Ollama models you've pulled, plus which one is currently active |
+| `POST` | `/api/model` | `{"model": "llama3.2"}` | Switch the live model — no restart, conversation memory carries over |
+| `GET` | `/api/health` | — | Checks Ollama reachability, active model, voice status |
+| `GET` | `/api/voice/status` | — | Whether whisper.cpp/Piper are installed & enabled |
+| `POST` | `/api/voice/transcribe` | multipart `audio` (wav) | Speech → text |
+| `POST` | `/api/voice/speak` | `{"text": "..."}` | Text → spoken wav |
+| `POST` | `/api/voice/chat` | multipart `audio` + `sessionId` | Full loop: speech → answer → speech |
 
 > **Why `/api/ingest/path` isn't sandboxed like `FileTools`:** `FileTools.readFile`/`listFiles` are
 > called *by the LLM*, based on its own reasoning about a prompt — including prompts that might
@@ -319,11 +330,19 @@ of actual measured impact on this project:
 > app — the same trust level as opening a file in a text editor. That's also why `server.address` is
 > pinned to `127.0.0.1`: this endpoint would be a real problem if it were reachable from other
 > devices on the network.
-| `GET` | `/api/health` | — | Checks Ollama reachability, active model, voice status |
-| `GET` | `/api/voice/status` | — | Whether whisper.cpp/Piper are installed & enabled |
-| `POST` | `/api/voice/transcribe` | multipart `audio` (wav) | Speech → text |
-| `POST` | `/api/voice/speak` | `{"text": "..."}` | Text → spoken wav |
-| `POST` | `/api/voice/chat` | multipart `audio` + `sessionId` | Full loop: speech → answer → speech |
+
+> **Why model switching needed a real refactor, not a config edit:** LangChain4j's `AiServices`
+> bakes in the chosen `ChatModel` when it builds the proxy — there's no `setModel()` to call later.
+> `AssistantService.switchModel()` rebuilds that proxy against a new `OllamaChatModel`, but keeps
+> conversation memory in a map `AssistantService` owns itself (not inside the rebuilt proxy), handed
+> to every rebuild via the same `chatMemoryProvider` lambda — so switching models mid-conversation
+> doesn't wipe your chat history.
+
+> **Recent chats are stored in the browser (`localStorage`), not on the server.** The server's
+> memory of a conversation *is* persistent per session id for as long as the app keeps running —
+> clicking a past chat just restores its rendered messages client-side and resumes with the same
+> session id, so the model still remembers the earlier turns. Clearing browser storage loses the
+> sidebar list, not the app's own state.
 
 ---
 

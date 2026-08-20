@@ -1,5 +1,6 @@
 package com.pankaj.localai.web;
 
+import com.pankaj.localai.assistant.AssistantService;
 import com.pankaj.localai.config.AssistantProperties;
 import com.pankaj.localai.voice.VoiceService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,10 +19,12 @@ public class HealthController {
     private final RestClient restClient;
     private final AssistantProperties props;
     private final VoiceService voiceService;
+    private final AssistantService assistantService;
 
-    public HealthController(AssistantProperties props, VoiceService voiceService) {
+    public HealthController(AssistantProperties props, VoiceService voiceService, AssistantService assistantService) {
         this.props = props;
         this.voiceService = voiceService;
+        this.assistantService = assistantService;
         this.restClient = RestClient.create();
     }
 
@@ -31,7 +34,7 @@ public class HealthController {
         return Map.of(
                 "status", "ok",
                 "ollamaReachable", ollamaUp,
-                "chatModel", props.getOllama().getChatModel(),
+                "chatModel", assistantService.getCurrentModel(),
                 "voice", voiceService.statusMessage(),
                 "webSearch", webSearchStatus()
         );
