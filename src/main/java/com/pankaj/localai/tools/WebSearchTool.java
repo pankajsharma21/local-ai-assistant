@@ -37,14 +37,18 @@ public class WebSearchTool {
     private static final Logger log = LoggerFactory.getLogger(WebSearchTool.class);
 
     private final AssistantProperties.WebSearch config;
+    private final WikidataSearchTool wikidataFallback;
     private final WikipediaSearchTool wikipediaFallback;
     private final RestClient restClient = RestClient.builder()
             .baseUrl("https://api.tavily.com")
             .build();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public WebSearchTool(AssistantProperties props, WikipediaSearchTool wikipediaFallback) {
+    public WebSearchTool(AssistantProperties props,
+                         WikidataSearchTool wikidataFallback,
+                         WikipediaSearchTool wikipediaFallback) {
         this.config = props.getWebSearch();
+        this.wikidataFallback = wikidataFallback;
         this.wikipediaFallback = wikipediaFallback;
     }
 
@@ -63,8 +67,8 @@ public class WebSearchTool {
     public String searchWeb(String query) {
         log.info("searchWeb called with query: {}", query);
         if (!isAvailable()) {
-            log.info("Tavily not configured, falling back to Wikipedia for: {}", query);
-            return "[Live web search not configured — falling back to Wikipedia]\n" + wikipediaFallback.searchWikipedia(query);
+            log.info("Tavily not configured, falling back to keyless sources for: {}", query);
+            return "[Live web search not configured — used keyless sources instead]\n" + keylessFallback(query);
         }
         try {
             Map<String, Object> requestBody = Map.of(
@@ -85,9 +89,27 @@ public class WebSearchTool {
 
             return format(response);
         } catch (Exception e) {
-            log.warn("Web search failed for '{}', falling back to Wikipedia", query, e);
-            return "[Live web search failed — falling back to Wikipedia]\n" + wikipediaFallback.searchWikipedia(query);
+            log.warn("Web search failed for '{}', falling back to keyless sources", query, e);
+            return "[Live web search failed — used keyless sources instead]\n" + keylessFallback(query);
         }
+    }
+
+    /**
+     * Keyless fallback chain used whenever Tavily is unconfigured or fails: Wikidata first (it gives
+     * structured version numbers with release dates, which is what "latest version" questions
+     * actually need), then Wikipedia for prose context. Both are returned when both have something,
+     * since they answer slightly different halves of the question.
+     */
+    private String keylessFallback(String query) {
+        String wikidata = wikidataFallback.searchWikidata(query);
+        boolean wikidataUseful = wikidata != null
+                && !wikidata.startsWith("No matching Wikidata entity")
+                && !wikidata.startsWith("Wikidata lookup failed");
+        String wikipedia = wikipediaFallback.searchWikipedia(query);
+        if (wikidataUseful) {
+            return wikidata + "\n\n" + wikipedia;
+        }
+        return wikipedia;
     }
 
     private String format(JsonNode response) {

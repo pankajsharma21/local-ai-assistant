@@ -5,6 +5,7 @@ import com.pankaj.localai.tools.CodeSearchTool;
 import com.pankaj.localai.tools.DocSearchTool;
 import com.pankaj.localai.tools.FileTools;
 import com.pankaj.localai.tools.WebSearchTool;
+import com.pankaj.localai.tools.WikidataSearchTool;
 import com.pankaj.localai.tools.WikipediaSearchTool;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
@@ -41,6 +42,7 @@ public class AssistantService {
     private final DocSearchTool docSearchTool;
     private final CodeSearchTool codeSearchTool;
     private final FileTools fileTools;
+    private final WikidataSearchTool wikidataSearchTool;
     private final WikipediaSearchTool wikipediaSearchTool;
     private final WebSearchTool webSearchTool;
 
@@ -53,12 +55,14 @@ public class AssistantService {
                              DocSearchTool docSearchTool,
                              CodeSearchTool codeSearchTool,
                              FileTools fileTools,
+                             WikidataSearchTool wikidataSearchTool,
                              WikipediaSearchTool wikipediaSearchTool,
                              WebSearchTool webSearchTool) {
         this.props = props;
         this.docSearchTool = docSearchTool;
         this.codeSearchTool = codeSearchTool;
         this.fileTools = fileTools;
+        this.wikidataSearchTool = wikidataSearchTool;
         this.wikipediaSearchTool = wikipediaSearchTool;
         this.webSearchTool = webSearchTool;
         switchModel(props.getOllama().getChatModel());
@@ -85,7 +89,7 @@ public class AssistantService {
         this.assistant = AiServices.builder(Assistant.class)
                 .chatModel(chatModel)
                 .chatMemoryProvider(sessionId -> memories.computeIfAbsent(sessionId, id -> MessageWindowChatMemory.withMaxMessages(20)))
-                .tools(docSearchTool, codeSearchTool, fileTools, wikipediaSearchTool, webSearchTool)
+                .tools(docSearchTool, codeSearchTool, fileTools, wikidataSearchTool, wikipediaSearchTool, webSearchTool)
                 .build();
         this.currentModel = modelName;
     }

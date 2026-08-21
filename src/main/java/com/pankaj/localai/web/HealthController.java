@@ -43,7 +43,8 @@ public class HealthController {
     private String webSearchStatus() {
         var config = props.getWebSearch();
         if (!config.isEnabled() || config.getTavilyApiKey().isBlank()) {
-            return "Optional — needs a free Tavily API key. Questions still get current answers via Wikipedia.";
+            return "Optional — needs a free Tavily API key. Current-fact questions are still answered "
+                    + "via the keyless Wikidata + Wikipedia fallback.";
         }
         return "Live web search enabled (Tavily).";
     }

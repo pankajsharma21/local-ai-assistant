@@ -442,8 +442,10 @@
 
       <h2>Connections</h2>
       <div class="status-row"><span class="dot" id="ollamaDot"></span><span class="label" id="ollamaLabel">Ollama</span></div>
+      <div class="status-row"><span class="dot" id="wikidataDot"></span><span class="label">Wikidata</span></div>
+      <div class="hint">Always on, no setup — structured facts, best for "latest version" questions.</div>
       <div class="status-row"><span class="dot" id="wikipediaDot"></span><span class="label">Wikipedia</span></div>
-      <div class="hint" id="wikipediaHint">Always on, no setup — used for current facts like version numbers.</div>
+      <div class="hint" id="wikipediaHint">Always on, no setup — encyclopedic context.</div>
       <div class="status-row"><span class="dot" id="webSearchDot"></span><span class="label">Live web search</span></div>
       <div class="hint" id="webSearchHint">Checking…</div>
       <div class="status-row"><span class="dot" id="voiceDot"></span><span class="label">Voice</span></div>
@@ -944,6 +946,7 @@ async function checkHealth() {
   const headerDot = document.getElementById('statusDot');
   const headerText = document.getElementById('statusText');
   const ollamaDot = document.getElementById('ollamaDot');
+  const wikidataDot = document.getElementById('wikidataDot');
   const wikiDot = document.getElementById('wikipediaDot');
   const webDot = document.getElementById('webSearchDot');
   const voiceDot = document.getElementById('voiceDot');
@@ -960,6 +963,7 @@ async function checkHealth() {
     document.getElementById('ollamaLabel').textContent = up ? `Ollama · ${data.chatModel}` : 'Ollama (not running)';
     // searchWikipedia has no config gate — it's always registered and callable, so it's "on"
     // whenever the backend is reachable (an individual lookup can still fail without internet).
+    wikidataDot.className = 'dot ok';
     wikiDot.className = 'dot ok';
     webDot.className = 'dot' + (webUp ? ' ok' : '');
     voiceDot.className = 'dot' + (voiceUp ? ' ok' : '');
@@ -968,7 +972,7 @@ async function checkHealth() {
   } catch {
     headerDot.className = 'dot bad';
     headerText.textContent = 'backend unreachable';
-    ollamaDot.className = wikiDot.className = webDot.className = voiceDot.className = 'dot bad';
+    ollamaDot.className = wikidataDot.className = wikiDot.className = webDot.className = voiceDot.className = 'dot bad';
     document.getElementById('webSearchHint').textContent = document.getElementById('voiceHint').textContent = 'Backend not reachable.';
   }
 }

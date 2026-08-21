@@ -24,7 +24,7 @@ run the model *and* the retrieval pipeline entirely on your own hardware.
 | 💬 **Chat** | General-purpose conversation with per-session memory |
 | 📄 **Document RAG** | Ask questions grounded in your own PDFs/notes/markdown — answers cite the source file |
 | 💻 **Code assistant** | Ask questions about an ingested codebase; can read full files and list directories |
-| 🌐 **Wikipedia lookup** | Always-on, no API key — fixes "the model's training data is stale" for stable facts (versions, definitions, history) |
+| 🌐 **Wikidata + Wikipedia** | Always-on, no API key, no account — Wikidata returns structured version numbers *with release dates* (verified returning a Kubernetes release from the same day), Wikipedia adds prose context |
 | 🔍 **Live web search** | Opt-in (needs a free Tavily key) — real-time answers for anything current/breaking |
 | 🎤 **Voice** | Speak your question, hear the answer spoken back — same brain, mic/speaker wrapper |
 | 🔒 **Local-by-default** | LLM via Ollama, embeddings run in-process in the JVM, vector store is a local JSON file — Wikipedia/web-search are the only calls that leave localhost, and only when a question needs them |
@@ -56,6 +56,7 @@ flowchart LR
     C -->|tool call: searchDocs| D[(Docs vector store<br/>data/store/docs-store.json)]
     C -->|tool call: searchCode| E[(Code vector store<br/>data/store/code-store.json)]
     C -->|tool call: readFile / listFiles| F[/Local filesystem/]
+    C -->|tool call: searchWikidata| W[Wikidata SPARQL<br/>always on, no key]
     C -->|tool call: searchWikipedia| K[Wikipedia REST API<br/>always on, no key]
     C -->|tool call: searchWeb| L[Tavily search API<br/>opt-in, needs a key]
     C <-->|generate| G[Ollama server<br/>localhost:11434<br/>llama3.2 / qwen2.5 / etc.]
@@ -69,7 +70,8 @@ flowchart LR
 ```
 
 **The key idea:** one LLM (served by Ollama), one `AiServices`-backed agent, one chat memory — with
-a small toolbox (`searchDocs`, `searchCode`, `readFile`, `listFiles`, `searchWikipedia`, `searchWeb`)
+a small toolbox (`searchDocs`, `searchCode`, `readFile`, `listFiles`, `searchWikidata`,
+`searchWikipedia`, `searchWeb`)
 it calls into *only when the question needs it*. Voice doesn't touch the agent at all — it's STT/TTS
 bolted onto the same `/api/chat` logic.
 
@@ -91,14 +93,16 @@ to scale further — the rest of the app (tools, ingestion, agent) doesn't chang
 
 Local LLMs have a training cutoff — ask one "what's the latest LTS version of Java" and it will
 confidently give you a stale or outright wrong answer, because it has no way to know its own
-knowledge ends at some past date. `WikipediaSearchTool` and `WebSearchTool` fix this the same way
-a human would: look it up instead of guessing. Everything else in the app stays local; these two
-tools are the deliberate, clearly-labeled exception, and `WebSearchTool` is off by default until you
-provide your own API key.
+knowledge ends at some past date. `WikidataSearchTool`, `WikipediaSearchTool` and `WebSearchTool`
+fix this the same way
+a human would: look it up instead of guessing. Everything else in the app stays local; these
+tools are the deliberate, clearly-labeled exception, and only `WebSearchTool` needs an API key —
+the Wikidata/Wikipedia pair works with no account, key or credit card, ever.
 
 | Tool | Setup | Coverage |
 |---|---|---|
-| `searchWikipedia` | None — works immediately | Stable/encyclopedic facts: versions, definitions, history |
+| `searchWikidata` | None — works immediately | Structured facts: version numbers with release dates (best for "latest version of X") |
+| `searchWikipedia` | None — works immediately | Encyclopedic prose: definitions, history, context |
 | `searchWeb` | Free [Tavily](https://app.tavily.com) API key (1000 searches/month free) | Real-time web search — anything current or niche |
 
 The `Assistant` system prompt also gets today's real date injected on every call (see
@@ -161,6 +165,7 @@ src/main/java/com/pankaj/localai/
 │   ├── DocSearchTool.java         @Tool: vector search over data/docs
 │   ├── CodeSearchTool.java        @Tool: vector search over data/code
 │   ├── FileTools.java             @Tool: readFile / listFiles, sandboxed to the project root
+│   ├── WikidataSearchTool.java    @Tool: always-on, no-key structured facts (version numbers + dates)
 │   ├── WikipediaSearchTool.java   @Tool: always-on, no-key lookup for stable/encyclopedic facts
 │   └── WebSearchTool.java         @Tool: opt-in live web search (Tavily, needs an API key)
 ├── rag/
