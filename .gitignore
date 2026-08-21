@@ -23,5 +23,8 @@ data/code/*
 # (anchored to repo root only — do NOT let this match src/**/tools/, which is real source code)
 /tools/
 
+# Secrets — real API keys live here, never in tracked config. See .env.example.
+.env
+
 # Logs
 *.log

@@ -4,6 +4,17 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Load secrets from a git-ignored .env if present, so API keys never live in a tracked file.
+# See .env.example. Spring Boot's relaxed binding maps e.g.
+#   ASSISTANT_WEBSEARCH_TAVILYAPIKEY  ->  assistant.web-search.tavily-api-key
+if [ -f .env ]; then
+  echo "Loading environment overrides from .env"
+  set -a
+  # shellcheck disable=SC1091
+  . ./.env
+  set +a
+fi
+
 OLLAMA_BIN="${OLLAMA_BIN:-ollama}"
 if ! command -v "$OLLAMA_BIN" >/dev/null 2>&1; then
   # fall back to the user-local install used during development (see README "no-root install")

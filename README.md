@@ -260,15 +260,21 @@ curl -X POST http://localhost:8088/api/chat \
   -H "Content-Type: application/json" \
   -d '{"sessionId":"demo","message":"What is the latest Java LTS version?"}'
 ```
-For broader real-time web search, get a free key at [app.tavily.com](https://app.tavily.com), then
-set in `application.yml`:
-```yaml
-assistant:
-  web-search:
-    enabled: true
-    tavily-api-key: "tvly-..."
+For broader real-time web search, get a free key at [app.tavily.com](https://app.tavily.com)
+(1000 searches/month, no credit card), then put it in a **git-ignored `.env`** — *not* in
+`application.yml`, which is tracked by git and would leak your key into the repo's history:
+```bash
+cp .env.example .env
+# edit .env and paste your real key into ASSISTANT_WEBSEARCH_TAVILYAPIKEY
+./scripts/run.sh          # loads .env automatically
 ```
-Restart and `searchWeb` becomes available too. Note: smaller local models (`llama3.2` 3B) are
+`run.sh` exports those variables before starting the app, and Spring Boot's relaxed binding maps
+`ASSISTANT_WEBSEARCH_TAVILYAPIKEY` onto `assistant.web-search.tavily-api-key` — so no tracked file
+ever contains the secret.
+
+If the key is missing or invalid, `searchWeb` degrades gracefully rather than erroring: it catches
+the failure and falls back to `searchWikipedia`, so current-facts questions still get answered
+(verified by running with a deliberately invalid key). Note: smaller local models (`llama3.2` 3B) are
 noticeably less reliable at choosing to call these tools than a bigger one like `qwen2.5:7b` — see
 "A note on model size and tool-calling reliability" above.
 
@@ -362,7 +368,7 @@ of actual measured impact on this project:
 | `assistant.files.allowed-root` | `.` | Sandbox root for the LLM's `readFile`/`listFiles` **tool calls** |
 | `server.address` | `127.0.0.1` | Binds to localhost only — deliberate, since `/api/ingest/path` can read any file this OS user can access; don't widen this without adding auth |
 | `assistant.web-search.enabled` | `false` | Turn on `searchWeb` (needs the key below); `searchWikipedia` always works regardless |
-| `assistant.web-search.tavily-api-key` | `""` | Free key from [app.tavily.com](https://app.tavily.com) |
+| `assistant.web-search.tavily-api-key` | `""` | Free key from [app.tavily.com](https://app.tavily.com) — set it via `.env` (see `.env.example`), never in this tracked file |
 | `assistant.voice.enabled` | `true` | Actual availability still depends on `setup_voice.sh` having populated `./tools/whisper` + `./tools/piper` — check `/api/voice/status` |
 
 ---
