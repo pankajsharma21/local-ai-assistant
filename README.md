@@ -25,7 +25,7 @@ run the model *and* the retrieval pipeline entirely on your own hardware.
 | 📄 **Document RAG** | Ask questions grounded in your own PDFs/notes/markdown — answers cite the source file |
 | 💻 **Code assistant** | Ask questions about an ingested codebase; can read full files and list directories |
 | 🌐 **Wikidata + Wikipedia** | Always-on, no API key, no account — Wikidata returns structured version numbers *with release dates* (verified returning a Kubernetes release from the same day), Wikipedia adds prose context |
-| 🔍 **Live web search** | Opt-in (needs a free Tavily key) — real-time answers for anything current/breaking |
+| 🔍 **Live web search** | Keyless via DuckDuckGo (`scripts/setup_websearch.sh`) — real general web results (docs, GitHub, blogs). Optional Tavily key takes priority if you set one |
 | 🎤 **Voice** | Speak your question, hear the answer spoken back — same brain, mic/speaker wrapper |
 | 🔒 **Local-by-default** | LLM via Ollama, embeddings run in-process in the JVM, vector store is a local JSON file — Wikipedia/web-search are the only calls that leave localhost, and only when a question needs them |
 | 🖌️ **Modern chat UI** | Markdown-rendered replies, auto-growing composer, animated typing indicator, suggested-prompt empty state, one-click copy — styled after ChatGPT/Claude, not a form-and-textarea demo |
@@ -103,7 +103,8 @@ the Wikidata/Wikipedia pair works with no account, key or credit card, ever.
 |---|---|---|
 | `searchWikidata` | None — works immediately | Structured facts: version numbers with release dates (best for "latest version of X") |
 | `searchWikipedia` | None — works immediately | Encyclopedic prose: definitions, history, context |
-| `searchWeb` | Free [Tavily](https://app.tavily.com) API key (1000 searches/month free) | Real-time web search — anything current or niche |
+| `searchWeb` → DuckDuckGo | `scripts/setup_websearch.sh` — no key, no account, no credit card | Real general web search: docs sites, GitHub releases, blogs, news |
+| `searchWeb` → Tavily | Optional [Tavily](https://app.tavily.com) API key (needs a card at signup) | Same, via a commercial API; used in preference to DuckDuckGo when configured |
 
 The `Assistant` system prompt also gets today's real date injected on every call (see
 `AssistantService.chat`), so the model knows *why* its own memory might be stale instead of
@@ -165,6 +166,7 @@ src/main/java/com/pankaj/localai/
 │   ├── DocSearchTool.java         @Tool: vector search over data/docs
 │   ├── CodeSearchTool.java        @Tool: vector search over data/code
 │   ├── FileTools.java             @Tool: readFile / listFiles, sandboxed to the project root
+│   ├── DuckDuckGoSearchTool.java  keyless general web search (Python bridge, no @Tool - see below)
 │   ├── WikidataSearchTool.java    @Tool: always-on, no-key structured facts (version numbers + dates)
 │   ├── WikipediaSearchTool.java   @Tool: always-on, no-key lookup for stable/encyclopedic facts
 │   └── WebSearchTool.java         @Tool: opt-in live web search (Tavily, needs an API key)
@@ -265,8 +267,19 @@ curl -X POST http://localhost:8088/api/chat \
   -H "Content-Type: application/json" \
   -d '{"sessionId":"demo","message":"What is the latest Java LTS version?"}'
 ```
-For broader real-time web search, get a free key at [app.tavily.com](https://app.tavily.com)
-(1000 searches/month, no credit card), then put it in a **git-ignored `.env`** — *not* in
+For broader real-time web search, the **keyless** option needs no account at all:
+```bash
+./scripts/setup_websearch.sh    # creates a small Python venv with the `ddgs` DuckDuckGo client
+./scripts/run.sh                # restart; "Live web search" turns green automatically
+```
+This shells out to a Python helper (`scripts/ddg_search.py`) rather than doing it in Java, because
+DuckDuckGo actively blocks naive HTML scraping — raw requests return an anti-bot challenge page with
+zero parseable results (verified). The `ddgs` library maintains those workarounds. Shelling out to
+external tools is already the pattern here for whisper.cpp and Piper.
+
+If you'd rather use a commercial API, Tavily takes priority when configured — get a key at
+[app.tavily.com](https://app.tavily.com) (note: signup asks for a card), then put it in a
+**git-ignored `.env`** — *not* in
 `application.yml`, which is tracked by git and would leak your key into the repo's history:
 ```bash
 cp .env.example .env

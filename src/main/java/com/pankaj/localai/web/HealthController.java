@@ -2,6 +2,7 @@ package com.pankaj.localai.web;
 
 import com.pankaj.localai.assistant.AssistantService;
 import com.pankaj.localai.config.AssistantProperties;
+import com.pankaj.localai.tools.DuckDuckGoSearchTool;
 import com.pankaj.localai.voice.VoiceService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,11 +21,14 @@ public class HealthController {
     private final AssistantProperties props;
     private final VoiceService voiceService;
     private final AssistantService assistantService;
+    private final DuckDuckGoSearchTool duckDuckGo;
 
-    public HealthController(AssistantProperties props, VoiceService voiceService, AssistantService assistantService) {
+    public HealthController(AssistantProperties props, VoiceService voiceService,
+                            AssistantService assistantService, DuckDuckGoSearchTool duckDuckGo) {
         this.props = props;
         this.voiceService = voiceService;
         this.assistantService = assistantService;
+        this.duckDuckGo = duckDuckGo;
         this.restClient = RestClient.create();
     }
 
@@ -42,11 +46,15 @@ public class HealthController {
 
     private String webSearchStatus() {
         var config = props.getWebSearch();
-        if (!config.isEnabled() || config.getTavilyApiKey().isBlank()) {
-            return "Optional — needs a free Tavily API key. Current-fact questions are still answered "
-                    + "via the keyless Wikidata + Wikipedia fallback.";
+        boolean tavily = config.isEnabled() && !config.getTavilyApiKey().isBlank();
+        if (tavily) {
+            return "Live web search enabled (Tavily).";
         }
-        return "Live web search enabled (Tavily).";
+        if (duckDuckGo.isAvailable()) {
+            return "Live web search enabled (DuckDuckGo, no API key needed).";
+        }
+        return "Not set up — run scripts/setup_websearch.sh for keyless DuckDuckGo search, or add a "
+                + "Tavily key. Current-fact questions still work via Wikidata + Wikipedia.";
     }
 
     private boolean pingOllama() {

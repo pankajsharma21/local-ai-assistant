@@ -37,6 +37,7 @@ public class WebSearchTool {
     private static final Logger log = LoggerFactory.getLogger(WebSearchTool.class);
 
     private final AssistantProperties.WebSearch config;
+    private final DuckDuckGoSearchTool duckDuckGo;
     private final WikidataSearchTool wikidataFallback;
     private final WikipediaSearchTool wikipediaFallback;
     private final RestClient restClient = RestClient.builder()
@@ -45,9 +46,11 @@ public class WebSearchTool {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public WebSearchTool(AssistantProperties props,
+                         DuckDuckGoSearchTool duckDuckGo,
                          WikidataSearchTool wikidataFallback,
                          WikipediaSearchTool wikipediaFallback) {
         this.config = props.getWebSearch();
+        this.duckDuckGo = duckDuckGo;
         this.wikidataFallback = wikidataFallback;
         this.wikipediaFallback = wikipediaFallback;
     }
@@ -101,6 +104,12 @@ public class WebSearchTool {
      * since they answer slightly different halves of the question.
      */
     private String keylessFallback(String query) {
+        // DuckDuckGo first when installed: it's real general web search (docs, GitHub, blogs), which
+        // Wikidata/Wikipedia can't cover. Falls through to them if it's not set up or the call fails.
+        String ddg = duckDuckGo.search(query);
+        if (ddg != null && !ddg.isBlank()) {
+            return "[Web results via DuckDuckGo]\n" + ddg;
+        }
         String wikidata = wikidataFallback.searchWikidata(query);
         boolean wikidataUseful = wikidata != null
                 && !wikidata.startsWith("No matching Wikidata entity")
