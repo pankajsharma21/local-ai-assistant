@@ -36,11 +36,7 @@ public class DocSearchTool {
     }
 
     @Tool("""
-        Search the user's own documents (PDFs, notes, markdown files that were ingested from their
-        local documents folder) for information relevant to the given query. Use this whenever the
-        user asks something that could be answered from their personal/uploaded documents rather
-        than general world knowledge - e.g. "what does my contract say about X", "summarize chapter 2",
-        "what did I write about Y". Returns the most relevant excerpts along with their source file names.
+        Search the user's own ingested documents (PDFs, notes, markdown). Use for anything about "my documents", a contract, a report, or a file they uploaded. Returns excerpts with source file names.
         """)
     public String searchDocs(String query) {
         List<EmbeddingMatch<TextSegment>> matches = search(query);

@@ -65,11 +65,7 @@ public class WeatherTool {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Tool("""
-        Get the current weather and today's/tomorrow's forecast for a city or place. Use this for ANY
-        weather question - "weather in X", "is it raining in X", "temperature today", "will it rain
-        tomorrow". Do NOT use searchWeb for weather; general web search does not return live weather
-        data. Pass just the place name (e.g. "Gurugram", "London", "New York"), not the whole
-        question. Temperatures are Celsius, wind is km/h.
+        Current weather plus today/tomorrow forecast for a place. Use for ANY weather question; never use searchWeb for weather. Pass just the place name, e.g. "Gurugram". Celsius, km/h.
         """)
     public String getWeather(String location) {
         log.info("getWeather called for: {}", location);

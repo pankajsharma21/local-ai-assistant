@@ -30,11 +30,7 @@ public class ListDocumentsTool {
     }
 
     @Tool("""
-        List the documents the user has ingested, with how much content each holds. Call this
-        whenever the user refers to their documents without naming one - "what does this document
-        contain", "the file I just uploaded", "what documents do I have", "summarise my document" -
-        so you know what actually exists before answering. If exactly one document is listed, that
-        is almost certainly the one they mean. Follow up with searchDocs to read its contents.
+        List ingested documents. Call this when the user says "this document", "the file I uploaded", or "my documents" without naming one. It returns the most recently added file WITH its opening content, so you can usually answer straight from the result.
         """)
     public String listDocuments() {
         Map<String, Integer> docs = storeManager.listDocuments();

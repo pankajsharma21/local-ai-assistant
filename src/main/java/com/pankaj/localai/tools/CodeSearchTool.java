@@ -36,11 +36,7 @@ public class CodeSearchTool {
     }
 
     @Tool("""
-        Search the ingested source code (from the configured code folder) for functions, classes or
-        logic relevant to the given query. Use this when the user asks about "this codebase", how
-        something is implemented, where a function lives, or wants an explanation of existing code.
-        Returns the most relevant code snippets along with their file paths. Combine with readFile
-        if you need the full file after finding it here.
+        Search the ingested codebase for relevant classes, methods or logic. Use for "how is X implemented", "where does Y live", or questions about this project's code. Returns snippets with file paths.
         """)
     public String searchCode(String query) {
         List<EmbeddingMatch<TextSegment>> matches = search(query);

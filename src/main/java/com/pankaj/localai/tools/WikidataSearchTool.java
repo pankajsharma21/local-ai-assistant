@@ -50,13 +50,7 @@ public class WikidataSearchTool {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Tool("""
-        Look up structured facts from Wikidata - best tool for "what is the latest/current version of
-        X" questions about software, languages, databases or tools, because it returns actual version
-        numbers with their release dates rather than prose. Always available, no setup or API key.
-        Prefer this over your own memory for anything version-related: your training data has a cutoff
-        and will be wrong. Note the results may include pre-releases (beta/rc) alongside stable
-        versions - use the release dates and version strings to tell them apart, and say which is
-        which. Returns nothing useful for non-entity questions (news, opinions, blog posts).
+        Structured facts from Wikidata — the best source for "latest/current version of X" because it returns version numbers with real release dates. Prefer over your own memory for anything version-related. May include pre-releases; use the dates to tell them apart.
         """)
     public String searchWikidata(String query) {
         log.info("searchWikidata called with query: {}", query);

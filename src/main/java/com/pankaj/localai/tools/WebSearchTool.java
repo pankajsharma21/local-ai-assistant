@@ -60,12 +60,7 @@ public class WebSearchTool {
     }
 
     @Tool("""
-        Search the live web for current, up-to-date information - anything that could have changed
-        since your training cutoff: current software/library versions, recent events, prices,
-        "latest"/"newest" anything. Do NOT answer these from your own memory, it may be stale or
-        simply wrong - call this tool instead. If live search isn't configured on this machine, this
-        tool automatically returns a Wikipedia-sourced answer instead - mention to the user that the
-        answer came from Wikipedia (not live search) if that happens.
+        Search the live web for current information — recent events, prices, anything that may have changed since your training cutoff. Do not answer such questions from memory. Falls back automatically to Wikidata/Wikipedia when live search is unconfigured.
         """)
     public String searchWeb(String query) {
         log.info("searchWeb called with query: {}", query);

@@ -36,11 +36,7 @@ public class WikipediaSearchTool {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Tool("""
-        Look up a factual/encyclopedic topic on Wikipedia - use this for stable, well-documented
-        facts your own training data might have wrong or outdated: software/library version history,
-        definitions, historical events, biographical facts. Always available, no setup required.
-        Prefer this over answering from memory whenever the question involves "latest", "current",
-        or "as of" - your training data has a cutoff and may be stale or simply wrong.
+        Look up encyclopedic facts on Wikipedia — definitions, history, background. No setup needed. Prefer over memory for anything involving "latest", "current" or "as of".
         """)
     public String searchWikipedia(String query) {
         log.info("searchWikipedia called with query: {}", query);

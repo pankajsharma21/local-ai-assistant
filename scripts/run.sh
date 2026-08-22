@@ -34,7 +34,11 @@ if ! curl -s -m 2 http://localhost:11434/api/tags >/dev/null 2>&1 && \
   # corrupted generations - the model emitted endless "[]([]([]..." for even trivial prompts -
   # while giving no speed benefit over CPU in our measurements. Leave integrated GPUs disabled
   # unless you have verified OUTPUT QUALITY, not just latency, on your own hardware.
-  nohup "$OLLAMA_BIN" serve > /tmp/ollama-serve.log 2>&1 &
+  # KEEP_ALIVE: without this Ollama evicts the model after 5 minutes idle, so a normal pause
+  # between questions costs a full 1-2 minute reload. MAX_LOADED_MODELS=1 is required alongside it -
+  # otherwise switching models leaves both pinned in RAM and starves the machine.
+  OLLAMA_KEEP_ALIVE=-1 OLLAMA_MAX_LOADED_MODELS=1 \
+    nohup "$OLLAMA_BIN" serve > /tmp/ollama-serve.log 2>&1 &
   disown
   sleep 3
 else
