@@ -2,7 +2,7 @@ package com.pankaj.localai.web;
 
 import com.pankaj.localai.assistant.AssistantService;
 import com.pankaj.localai.config.AssistantProperties;
-import com.pankaj.localai.tools.DuckDuckGoSearchTool;
+import com.pankaj.localai.tools.MarginaliaSearchTool;
 import com.pankaj.localai.voice.VoiceService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,14 +21,14 @@ public class HealthController {
     private final AssistantProperties props;
     private final VoiceService voiceService;
     private final AssistantService assistantService;
-    private final DuckDuckGoSearchTool duckDuckGo;
+    private final MarginaliaSearchTool marginalia;
 
     public HealthController(AssistantProperties props, VoiceService voiceService,
-                            AssistantService assistantService, DuckDuckGoSearchTool duckDuckGo) {
+                            AssistantService assistantService, MarginaliaSearchTool marginalia) {
         this.props = props;
         this.voiceService = voiceService;
         this.assistantService = assistantService;
-        this.duckDuckGo = duckDuckGo;
+        this.marginalia = marginalia;
         this.restClient = RestClient.create();
     }
 
@@ -50,11 +50,11 @@ public class HealthController {
         if (tavily) {
             return "Live web search enabled (Tavily).";
         }
-        if (duckDuckGo.isAvailable()) {
-            return "Live web search enabled (DuckDuckGo, no API key needed).";
+        if (marginalia.isAvailable()) {
+            return "Live web search enabled (Marginalia, no API key needed).";
         }
-        return "Not set up — run scripts/setup_websearch.sh for keyless DuckDuckGo search, or add a "
-                + "Tavily key. Current-fact questions still work via Wikidata + Wikipedia.";
+        return "Disabled — set assistant.web-search.marginalia-enabled=true, or add a Tavily key. "
+                + "Current-fact questions still work via Wikidata + Wikipedia.";
     }
 
     private boolean pingOllama() {

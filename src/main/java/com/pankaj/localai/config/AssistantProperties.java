@@ -77,8 +77,7 @@ public class AssistantProperties {
         private boolean enabled = false;
         private String tavilyApiKey = "";
         private int maxResults = 5;
-        private String duckduckgoPython = "./tools/websearch-venv/bin/python";
-        private String duckduckgoScript = "./scripts/ddg_search.py";
+        private boolean marginaliaEnabled = true;
 
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -86,10 +85,8 @@ public class AssistantProperties {
         public void setTavilyApiKey(String tavilyApiKey) { this.tavilyApiKey = tavilyApiKey; }
         public int getMaxResults() { return maxResults; }
         public void setMaxResults(int maxResults) { this.maxResults = maxResults; }
-        public String getDuckduckgoPython() { return duckduckgoPython; }
-        public void setDuckduckgoPython(String duckduckgoPython) { this.duckduckgoPython = duckduckgoPython; }
-        public String getDuckduckgoScript() { return duckduckgoScript; }
-        public void setDuckduckgoScript(String duckduckgoScript) { this.duckduckgoScript = duckduckgoScript; }
+        public boolean isMarginaliaEnabled() { return marginaliaEnabled; }
+        public void setMarginaliaEnabled(boolean marginaliaEnabled) { this.marginaliaEnabled = marginaliaEnabled; }
     }
 
     public static class Voice {
