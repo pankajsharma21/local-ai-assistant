@@ -4,6 +4,7 @@ import com.pankaj.localai.config.AssistantProperties;
 import com.pankaj.localai.tools.CodeSearchTool;
 import com.pankaj.localai.tools.DocSearchTool;
 import com.pankaj.localai.tools.FileTools;
+import com.pankaj.localai.tools.WeatherTool;
 import com.pankaj.localai.tools.WebSearchTool;
 import com.pankaj.localai.tools.WikidataSearchTool;
 import com.pankaj.localai.tools.WikipediaSearchTool;
@@ -45,6 +46,7 @@ public class AssistantService {
     private final WikidataSearchTool wikidataSearchTool;
     private final WikipediaSearchTool wikipediaSearchTool;
     private final WebSearchTool webSearchTool;
+    private final WeatherTool weatherTool;
 
     private final Map<Object, ChatMemory> memories = new ConcurrentHashMap<>();
 
@@ -57,7 +59,8 @@ public class AssistantService {
                              FileTools fileTools,
                              WikidataSearchTool wikidataSearchTool,
                              WikipediaSearchTool wikipediaSearchTool,
-                             WebSearchTool webSearchTool) {
+                             WebSearchTool webSearchTool,
+                             WeatherTool weatherTool) {
         this.props = props;
         this.docSearchTool = docSearchTool;
         this.codeSearchTool = codeSearchTool;
@@ -65,6 +68,7 @@ public class AssistantService {
         this.wikidataSearchTool = wikidataSearchTool;
         this.wikipediaSearchTool = wikipediaSearchTool;
         this.webSearchTool = webSearchTool;
+        this.weatherTool = weatherTool;
         switchModel(props.getOllama().getChatModel());
     }
 
@@ -89,7 +93,8 @@ public class AssistantService {
         this.assistant = AiServices.builder(Assistant.class)
                 .chatModel(chatModel)
                 .chatMemoryProvider(sessionId -> memories.computeIfAbsent(sessionId, id -> MessageWindowChatMemory.withMaxMessages(20)))
-                .tools(docSearchTool, codeSearchTool, fileTools, wikidataSearchTool, wikipediaSearchTool, webSearchTool)
+                .tools(docSearchTool, codeSearchTool, fileTools, wikidataSearchTool, wikipediaSearchTool,
+                        webSearchTool, weatherTool)
                 .build();
         this.currentModel = modelName;
     }

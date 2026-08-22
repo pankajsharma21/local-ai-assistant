@@ -25,6 +25,7 @@ run the model *and* the retrieval pipeline entirely on your own hardware.
 | 📄 **Document RAG** | Ask questions grounded in your own PDFs/notes/markdown — answers cite the source file |
 | 💻 **Code assistant** | Ask questions about an ingested codebase; can read full files and list directories |
 | 🌐 **Wikidata + Wikipedia** | Always-on, no API key, no account — Wikidata returns structured version numbers *with release dates* (verified returning a Kubernetes release from the same day), Wikipedia adds prose context |
+| 🌦️ **Weather** | Current conditions + 2-day forecast for any city via Open-Meteo — free, no API key, no account |
 | 🔍 **Live web search** | Keyless via Marginalia's public JSON API — no key, no account, works out of the box. Optional Tavily key takes priority if you set one |
 | 🎤 **Voice** | Speak your question, hear the answer spoken back — same brain, mic/speaker wrapper |
 | 🔒 **Local-by-default** | LLM via Ollama, embeddings run in-process in the JVM, vector store is a local JSON file — Wikipedia/web-search are the only calls that leave localhost, and only when a question needs them |
@@ -103,6 +104,7 @@ the Wikidata/Wikipedia pair works with no account, key or credit card, ever.
 |---|---|---|
 | `searchWikidata` | None — works immediately | Structured facts: version numbers with release dates (best for "latest version of X") |
 | `searchWikipedia` | None — works immediately | Encyclopedic prose: definitions, history, context |
+| `getWeather` | None — works immediately, no key or account | Live weather + forecast (Open-Meteo). General web search cannot do this |
 | `searchWeb` → Marginalia | None — works immediately, no key or account | General web search over independent/non-commercial sites |
 | `searchWeb` → Tavily | Optional [Tavily](https://app.tavily.com) API key (needs a card at signup) | Broader commercial index; used in preference to Marginalia when configured |
 
@@ -166,6 +168,7 @@ src/main/java/com/pankaj/localai/
 │   ├── DocSearchTool.java         @Tool: vector search over data/docs
 │   ├── CodeSearchTool.java        @Tool: vector search over data/code
 │   ├── FileTools.java             @Tool: readFile / listFiles, sandboxed to the project root
+│   ├── WeatherTool.java           @Tool: current weather + forecast via Open-Meteo (no key)
 │   ├── MarginaliaSearchTool.java  keyless general web search via public JSON API (plain Java HTTP)
 │   ├── WikidataSearchTool.java    @Tool: always-on, no-key structured facts (version numbers + dates)
 │   ├── WikipediaSearchTool.java   @Tool: always-on, no-key lookup for stable/encyclopedic facts

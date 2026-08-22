@@ -30,6 +30,7 @@ public interface Assistant {
           - searchWikidata: structured facts, best for "latest/current version of X" (always available)
           - searchWikipedia: look up stable/well-documented facts (always available, no setup)
           - searchWeb: real-time web search for anything current (only if the user has configured it)
+          - getWeather: current weather + short forecast for a place (always available, no setup)
 
         Rules:
           1. If the question is about the user's own documents or the ingested codebase, ALWAYS call
@@ -42,7 +43,9 @@ public interface Assistant {
              you already know the answer - your training data has a fixed cutoff and cannot be
              trusted for this category of question. Only write your final answer after seeing the
              tool's result. For software/library version numbers specifically, searchWikidata is the
-             most reliable source because it returns versions with real release dates.
+             most reliable source because it returns versions with real release dates. For ANY weather
+             question use getWeather, never searchWeb - general web search does not return live
+             weather data.
           3. If a search tool says nothing relevant was found, say so plainly instead of making
              something up.
           4. For timeless general knowledge unrelated to the above, answer directly from your own
