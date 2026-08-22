@@ -112,15 +112,21 @@ The `Assistant` system prompt also gets today's real date injected on every call
 `AssistantService.chat`), so the model knows *why* its own memory might be stale instead of
 asserting a wrong "latest version" with false confidence.
 
-**A note on model size and tool-calling reliability:** small local models (e.g. `llama3.2` 3B) are
-noticeably less reliable at *deciding* to call a tool for a given phrasing, and can occasionally
-state an answer while still (incorrectly) claiming "according to Wikipedia" without having called
-anything. This isn't a bug in the tools — verified independently, both return correct live data
-when actually invoked. Two things fixed this in practice: (1) switching the default model to
-`qwen2.5:7b`, and (2) making rule 2 of the system prompt an explicit, mandatory trigger-word list
-("latest", "current", "as of", etc. → call a tool *before* writing any reply text) rather than a
-soft suggestion — small/mid local models follow imperative, keyword-triggered instructions far more
-reliably than an implicit "use good judgment" framing.
+**A note on model choice — bigger turned out to be faster:** the intuitive assumption is that a 3B
+model beats a 7B on CPU. Measured on this machine, that is wrong in practice. Raw token rate does
+favour the smaller model (`llama3.2` 7.5 tok/s vs `qwen2.5:7b` 3.7 tok/s), but end-to-end, warm:
+
+| Task | `llama3.2` (3B) | `qwen2.5:7b` |
+|---|---|---|
+| Greeting | 2+ min, leaked raw tool-call JSON | 3.8s, clean |
+| Follow-up question | rambled about documents | 7.6s, correct recall |
+| "Write Java code to add 2 numbers" | 2m 02s | 35s |
+
+The 3B loses because it spends round-trips on tool calls it should never make — Ollama's logs showed
+two model invocations for questions needing zero tools — and it emits malformed tool-call blobs as
+visible prose. Prompt rules telling it not to did not stop it (it produced the artifact on 3 of 3
+greetings), so `AssistantService` filters them in code and retries. Raw tokens-per-second is simply
+the wrong metric: what matters is round-trips per answer.
 
 **Two more real bugs found via actual user testing (not caught by my own test prompts):**
 1. **Single-hop tool use.** Even `qwen2.5:7b`, told explicitly in the prompt to "call searchWeb, or
@@ -146,7 +152,7 @@ so a failure like this is diagnosable from the logs instead of guesswork next ti
 
 - **Java 21**, **Spring Boot 4** (REST API + static web UI)
 - **[LangChain4j](https://docs.langchain4j.dev/)** — tool-calling `AiServices`, chat memory, RAG plumbing
-- **[Ollama](https://ollama.com)** — serves the local LLM (default: `llama3.2` for speed; switch to `qwen2.5:7b` in the header dropdown when tool reliability matters)
+- **[Ollama](https://ollama.com)** — serves the local LLM (default: `qwen2.5:7b`; switchable live from the header dropdown)
 - **all-MiniLM-L6-v2** (ONNX, in-process) — local embeddings, no server
 - **Apache PDFBox** (via LangChain4j) — PDF parsing for doc ingestion
 - **whisper.cpp** + **Piper** (optional, one-time setup) — fully local speech-to-text / text-to-speech
@@ -387,7 +393,7 @@ of actual measured impact on this project:
 | Key | Default | Meaning |
 |---|---|---|
 | `assistant.ollama.base-url` | `http://localhost:11434` | Where Ollama is listening |
-| `assistant.ollama.chat-model` | `llama3.2` | Startup model. `llama3.2` is ~2.7x faster on CPU; switch to `qwen2.5:7b` in the UI when you need reliable tool use |
+| `assistant.ollama.chat-model` | `qwen2.5:7b` | Startup model. Faster *and* better in practice than `llama3.2` — see the model note below |
 | `assistant.rag.docs-path` | `./data/docs` | Folder scanned for PDF/txt/md documents |
 | `assistant.rag.code-path` | `./data/code` | Folder scanned for source code |
 | `assistant.rag.chunk-size` / `chunk-overlap` | `500` / `50` | Text splitting for embeddings |

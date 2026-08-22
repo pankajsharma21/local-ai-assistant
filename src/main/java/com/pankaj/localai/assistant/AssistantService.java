@@ -9,6 +9,8 @@ import com.pankaj.localai.tools.WeatherTool;
 import com.pankaj.localai.tools.WebSearchTool;
 import com.pankaj.localai.tools.WikidataSearchTool;
 import com.pankaj.localai.tools.WikipediaSearchTool;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
@@ -21,6 +23,8 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
@@ -102,12 +106,46 @@ public class AssistantService {
         if (!cleaned.isBlank()) {
             return cleaned;
         }
-        // The whole reply was a leaked tool-call blob and nothing else. Ask once more, explicitly.
+
+        // The whole reply was a leaked tool-call blob. Roll the failed exchange out of memory before
+        // retrying: if the model can still see its own broken output it apologises for it in the next
+        // reply ("It seems like I made a mistake, let me try again"), which exposes internal retry
+        // mechanics to the user. Retry with the ORIGINAL message too - appending a correction like
+        // "do not output JSON" reads to the model as the user scolding it, and provokes the same
+        // meta-commentary.
         log.warn("Model emitted only a tool-call artifact for '{}': {}", message, reply.strip());
-        String retry = assistant.chat(sessionId, today,
-                message + "\n\n(Reply in plain language. Do not output JSON or a function call.)");
+        rollbackLastExchange(sessionId);
+
+        String retry = assistant.chat(sessionId, today, message);
         String retryCleaned = stripToolCallArtifacts(retry);
-        return retryCleaned.isBlank() ? "Sorry — I garbled that. Could you ask again?" : retryCleaned;
+        if (retryCleaned.isBlank()) {
+            rollbackLastExchange(sessionId);
+            return "Sorry — I garbled that. Could you ask again?";
+        }
+        return retryCleaned;
+    }
+
+    /**
+     * Drops the most recent user turn and everything after it from a session's memory, so a failed
+     * exchange leaves no trace for the next attempt to react to.
+     */
+    private void rollbackLastExchange(String sessionId) {
+        ChatMemory memory = memories.get(sessionId);
+        if (memory == null) {
+            return;
+        }
+        List<ChatMessage> history = new ArrayList<>(memory.messages());
+        int lastUser = -1;
+        for (int i = history.size() - 1; i >= 0; i--) {
+            if (history.get(i) instanceof UserMessage) {
+                lastUser = i;
+                break;
+            }
+        }
+        if (lastUser < 0) {
+            return;
+        }
+        memory.set(history.subList(0, lastUser));
     }
 
     /**

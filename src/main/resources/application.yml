@@ -15,10 +15,11 @@ spring:
 assistant:
   ollama:
     base-url: http://localhost:11434
-    chat-model: llama3.2       # measured on CPU-only: ~2.7x faster than qwen2.5:7b for chat/codegen
-                               # (7.5 vs 3.7 tok/s). Trade-off: less reliable at deciding to call
-                               # tools, so switch to qwen2.5:7b in the header dropdown for document
-                               # Q&A, weather or current-facts questions. Switching needs no restart.
+    chat-model: qwen2.5:7b     # measured warm on CPU-only: greeting 3.8s, code question 35s.
+                               # llama3.2 has a higher raw token rate but is far slower in practice
+                               # here - it burns extra round-trips on tool calls it shouldn't make,
+                               # and leaks malformed tool-call JSON. Switch models in the header if
+                               # you want to compare; no restart needed.
     temperature: 0.3
     timeout-seconds: 300
 
