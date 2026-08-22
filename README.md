@@ -334,11 +334,11 @@ of actual measured impact on this project:
    reliable spontaneous tool-calling (see the model-size note above).
 2. **Free up RAM** — close other heavy apps (IDEs, browsers with many tabs). If swap is full,
    everything on the machine slows down, not just this app.
-3. **Try `OLLAMA_IGPU_ENABLE=1 ollama serve`** if you have an Intel integrated GPU — Ollama disables
-   it by default. Verify it's actually being used with `ollama ps` (look for `100% GPU` in the
-   PROCESSOR column). In our testing this made no measurable difference on an Intel Iris Xe with a
-   7B model — integrated GPUs share system memory bandwidth with the CPU, so don't expect much, but
-   it costs nothing to try on your own hardware.
+3. **Do NOT enable the Intel iGPU here.** `OLLAMA_IGPU_ENABLE=1` looked harmless — `ollama ps`
+   reported `100% GPU` — but it gave no speed benefit AND silently corrupted generation: the model
+   started emitting endless `[]([]([]...` for even "what is 2+2". Switching back to CPU-only fixed
+   it immediately. If you try an integrated GPU on your own hardware, validate **output quality**,
+   not just latency — a speed benchmark will not catch this.
 
 ---
 

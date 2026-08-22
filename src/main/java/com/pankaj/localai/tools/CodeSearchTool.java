@@ -8,7 +8,8 @@ import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
-import dev.langchain4j.store.embedding.EmbeddingSearchResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -21,6 +22,8 @@ import java.util.List;
  */
 @Component
 public class CodeSearchTool {
+
+    private static final Logger log = LoggerFactory.getLogger(CodeSearchTool.class);
 
     private final EmbeddingModel embeddingModel;
     private final EmbeddingStoreManager storeManager;
@@ -48,15 +51,31 @@ public class CodeSearchTool {
         return format(matches);
     }
 
+    /**
+     * Same approach as DocSearchTool: fetch candidates without the score cutoff, apply it here, and
+     * log when everything was rejected. A silent minScore makes "it can't find code that is clearly
+     * in the repo" impossible to diagnose from the outside.
+     */
     private List<EmbeddingMatch<TextSegment>> search(String query) {
         Embedding queryEmbedding = embeddingModel.embed(query).content();
+        double minScore = props.getRag().getMinScore();
         EmbeddingSearchRequest request = EmbeddingSearchRequest.builder()
                 .queryEmbedding(queryEmbedding)
                 .maxResults(props.getRag().getMaxResults())
-                .minScore(props.getRag().getMinScore())
+                .minScore(0.0)
                 .build();
-        EmbeddingSearchResult<TextSegment> result = storeManager.codeStore().search(request);
-        return result.matches();
+        List<EmbeddingMatch<TextSegment>> all = storeManager.codeStore().search(request).matches();
+
+        List<EmbeddingMatch<TextSegment>> kept = all.stream().filter(m -> m.score() >= minScore).toList();
+        if (kept.isEmpty() && !all.isEmpty()) {
+            log.info("Code search '{}': {} candidate(s) but all below min-score {} (best was {}). "
+                            + "Lower assistant.rag.min-score if this code should have matched.",
+                    query, all.size(), minScore, String.format("%.2f", all.get(0).score()));
+        } else {
+            log.debug("Code search '{}': kept {}/{} candidates at min-score {}",
+                    query, kept.size(), all.size(), minScore);
+        }
+        return kept;
     }
 
     private String format(List<EmbeddingMatch<TextSegment>> matches) {

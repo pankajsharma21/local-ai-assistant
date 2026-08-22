@@ -30,6 +30,10 @@ fi
 if ! curl -s -m 2 http://localhost:11434/api/tags >/dev/null 2>&1 && \
    ! python3 -c "import urllib.request;urllib.request.urlopen('http://localhost:11434/api/tags',timeout=2)" >/dev/null 2>&1; then
   echo "Starting Ollama server ($OLLAMA_BIN serve)..."
+  # Deliberately NOT setting OLLAMA_IGPU_ENABLE. On an Intel Iris Xe (Vulkan) this produced
+  # corrupted generations - the model emitted endless "[]([]([]..." for even trivial prompts -
+  # while giving no speed benefit over CPU in our measurements. Leave integrated GPUs disabled
+  # unless you have verified OUTPUT QUALITY, not just latency, on your own hardware.
   nohup "$OLLAMA_BIN" serve > /tmp/ollama-serve.log 2>&1 &
   disown
   sleep 3

@@ -8,7 +8,8 @@ import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
-import dev.langchain4j.store.embedding.EmbeddingSearchResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -21,6 +22,8 @@ import java.util.List;
  */
 @Component
 public class DocSearchTool {
+
+    private static final Logger log = LoggerFactory.getLogger(DocSearchTool.class);
 
     private final EmbeddingModel embeddingModel;
     private final EmbeddingStoreManager storeManager;
@@ -48,15 +51,33 @@ public class DocSearchTool {
         return format(matches);
     }
 
+    /**
+     * Retrieves candidates WITHOUT the score cutoff, then applies the cutoff ourselves so we can log
+     * what got rejected. A silently-applied minScore is genuinely hard to debug: the user asks about
+     * something that is definitely in their documents, every chunk scores just under the threshold,
+     * and the tool reports "nothing found" with no hint that near-misses existed. Logging the best
+     * rejected score turns that into an obvious signal that the threshold needs lowering.
+     */
     private List<EmbeddingMatch<TextSegment>> search(String query) {
         Embedding queryEmbedding = embeddingModel.embed(query).content();
+        double minScore = props.getRag().getMinScore();
         EmbeddingSearchRequest request = EmbeddingSearchRequest.builder()
                 .queryEmbedding(queryEmbedding)
                 .maxResults(props.getRag().getMaxResults())
-                .minScore(props.getRag().getMinScore())
+                .minScore(0.0)
                 .build();
-        EmbeddingSearchResult<TextSegment> result = storeManager.docsStore().search(request);
-        return result.matches();
+        List<EmbeddingMatch<TextSegment>> all = storeManager.docsStore().search(request).matches();
+
+        List<EmbeddingMatch<TextSegment>> kept = all.stream().filter(m -> m.score() >= minScore).toList();
+        if (kept.isEmpty() && !all.isEmpty()) {
+            log.info("Doc search '{}': {} candidate(s) but all below min-score {} (best was {}). "
+                            + "Lower assistant.rag.min-score if this content should have matched.",
+                    query, all.size(), minScore, String.format("%.2f", all.get(0).score()));
+        } else {
+            log.debug("Doc search '{}': kept {}/{} candidates at min-score {}",
+                    query, kept.size(), all.size(), minScore);
+        }
+        return kept;
     }
 
     private String format(List<EmbeddingMatch<TextSegment>> matches) {

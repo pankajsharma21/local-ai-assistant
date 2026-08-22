@@ -25,8 +25,10 @@ assistant:
     store-path: ./data/store
     chunk-size: 500
     chunk-overlap: 50
-    max-results: 5
-    min-score: 0.6
+    max-results: 6     # 5 was too thin for large PDFs; 10 was accurate but too slow on CPU-only
+    min-score: 0.35    # all-MiniLM scores genuinely-relevant chunks around 0.4-0.6, so 0.6 silently
+                       # dropped valid matches and looked like "not in your documents"
+
 
   files:
     # Tool calls (read_file / list_files) are sandboxed to this directory - no path traversal outside it.
