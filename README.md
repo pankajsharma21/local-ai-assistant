@@ -27,7 +27,7 @@ run the model *and* the retrieval pipeline entirely on your own hardware.
 | 🌐 **Wikidata + Wikipedia** | Always-on, no API key, no account — Wikidata returns structured version numbers *with release dates* (verified returning a Kubernetes release from the same day), Wikipedia adds prose context |
 | 🌦️ **Weather** | Current conditions + 2-day forecast for any city via Open-Meteo — free, no API key, no account |
 | 🔍 **Live web search** | Keyless via Marginalia's public JSON API — no key, no account, works out of the box. Optional Tavily key takes priority if you set one |
-| 🎤 **Voice** | Speak your question, hear the answer spoken back — same brain, mic/speaker wrapper |
+| 🎤 **Voice** | Speak your question (whisper.cpp) and hear replies read aloud (Piper) — per-message 🔊 button plus an auto-speak toggle. Same brain, mic/speaker wrapper |
 | 🔒 **Local-by-default** | LLM via Ollama, embeddings run in-process in the JVM, vector store is a local JSON file — Wikipedia/web-search are the only calls that leave localhost, and only when a question needs them |
 | 🖌️ **Modern chat UI** | Markdown-rendered replies, auto-growing composer, animated typing indicator, suggested-prompt empty state, one-click copy — styled after ChatGPT/Claude, not a form-and-textarea demo |
 | 🗂️ **Recent chats** | Sidebar list of past conversations (saved client-side); click one to resume — server-side memory is keyed by session id, so it's a real continuation, not just a replayed transcript |

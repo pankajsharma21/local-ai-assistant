@@ -347,6 +347,14 @@
   }
   .icon-btn { transition: background .12s, color .12s, transform .12s; }
   .icon-btn:hover { background: var(--panel-2); color: var(--accent); transform: scale(1.1); }
+  .icon-btn.speaking { color: var(--accent); background: var(--accent-soft); opacity: 1; }
+  /* keep the stop button visible while audio plays, even when not hovering the row */
+  .row-actions:has(.icon-btn.speaking) { opacity: 1; }
+  .toggle-row {
+    display: flex; align-items: center; gap: 8px; padding: 7px 2px; font-size: 12.5px; color: var(--text-muted);
+    cursor: pointer; user-select: none;
+  }
+  .toggle-row input { accent-color: var(--accent); cursor: pointer; }
 
   .typing-dots { display: flex; gap: 4px; padding: 6px 0; align-items: center; }
   .typing-dots span {
@@ -439,6 +447,13 @@
     <div class="sidebar-scroll">
       <h2>Recent chats</h2>
       <div class="chat-list" id="chatList"></div>
+
+      <h2>Voice</h2>
+      <label class="toggle-row" for="autoSpeak">
+        <input type="checkbox" id="autoSpeak" />
+        Read replies aloud automatically
+      </label>
+      <div class="hint">Or click the 🔊 icon under any reply. Uses Piper, fully local.</div>
 
       <h2>Connections</h2>
       <div class="status-row"><span class="dot" id="ollamaDot"></span><span class="label" id="ollamaLabel">Ollama</span></div>
@@ -628,6 +643,59 @@ function wirePromptChips() {
   });
 }
 
+// --- Text-to-speech playback (Piper via /api/voice/speak) ---
+const ICON_SPEAKER = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>';
+const ICON_STOP    = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+const ICON_SPINNER = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.9s" repeatCount="indefinite"/></path></svg>';
+
+let currentAudio = null;
+let voiceAvailable = false;   // set by checkHealth()
+
+/** Speaks the given text. Re-clicking while playing stops it. */
+async function speakText(text, btn) {
+  // Stop whatever is playing first - avoids two replies talking over each other.
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+    document.querySelectorAll('.icon-btn.speaking').forEach(b => {
+      b.classList.remove('speaking');
+      b.innerHTML = ICON_SPEAKER;
+    });
+    if (btn && btn.dataset.wasPlaying === '1') { btn.dataset.wasPlaying = '0'; return; }
+  }
+  if (!text || !text.trim()) return;
+  if (!voiceAvailable) {
+    addMessage('assistant', { text: 'Voice output needs whisper.cpp/Piper set up — run scripts/setup_voice.sh.' });
+    return;
+  }
+
+  if (btn) btn.innerHTML = ICON_SPINNER;
+  try {
+    const res = await fetch('/api/voice/speak', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'speech synthesis failed');
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    currentAudio = audio;
+    if (btn) { btn.innerHTML = ICON_STOP; btn.classList.add('speaking'); btn.dataset.wasPlaying = '1'; }
+    audio.onended = audio.onerror = () => {
+      URL.revokeObjectURL(url);
+      currentAudio = null;
+      if (btn) { btn.innerHTML = ICON_SPEAKER; btn.classList.remove('speaking'); btn.dataset.wasPlaying = '0'; }
+    };
+    await audio.play();
+  } catch (err) {
+    if (btn) { btn.innerHTML = ICON_SPEAKER; btn.classList.remove('speaking'); }
+    addMessage('assistant', { text: 'Could not read that aloud: ' + err.message });
+  }
+}
+
 // Chintu's face — reused for every assistant avatar (chat rows + typing indicator)
 const CHINTU_FACE_SVG = `<svg class="chintu-face" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
   <circle cx="24" cy="26" r="15" fill="#ffcd9c"/>
@@ -715,6 +783,16 @@ function addMessage(role, { text, html, attachmentName, skipRecord } = {}) {
       setTimeout(() => copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>', 1500);
     });
     actions.appendChild(copyBtn);
+
+    // Speak this reply aloud (Piper TTS via /api/voice/speak). Only offered when voice is set up.
+    const speakBtn = document.createElement('button');
+    speakBtn.type = 'button';
+    speakBtn.className = 'icon-btn';
+    speakBtn.title = 'Read aloud';
+    speakBtn.innerHTML = ICON_SPEAKER;
+    speakBtn.addEventListener('click', () => speakText(text ?? content.innerText, speakBtn));
+    actions.appendChild(speakBtn);
+
     col.appendChild(actions);
   }
 
@@ -759,7 +837,10 @@ async function sendMessage(message) {
     const data = await res.json();
     const reply = data.reply ?? JSON.stringify(data);
     typingRow.remove();
-    addMessage('assistant', { text: reply, html: renderMarkdown(reply) });
+    const row = addMessage('assistant', { text: reply, html: renderMarkdown(reply) });
+    if (document.getElementById('autoSpeak')?.checked) {
+      speakText(reply, row.querySelector('.icon-btn:last-child'));
+    }
   } catch (err) {
     typingRow.remove();
     addMessage('assistant', { text: 'Error: ' + err.message });
@@ -956,6 +1037,7 @@ async function checkHealth() {
     const up = data.ollamaReachable;
     const webUp = !!data.webSearch && data.webSearch.startsWith('Live web search enabled');
     const voiceUp = !!data.voice && data.voice.startsWith('Voice is enabled and all');
+    voiceAvailable = voiceUp;
 
     headerDot.className = 'dot ' + (up ? 'ok' : 'bad');
     headerText.textContent = up ? data.chatModel : 'Ollama unreachable';
