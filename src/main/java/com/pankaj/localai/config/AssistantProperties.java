@@ -95,6 +95,8 @@ public class AssistantProperties {
         private String whisperModel = "./tools/whisper/models/ggml-base.en.bin";
         private String piperBinary = "./tools/piper/piper";
         private String piperModel = "./tools/piper/voices/en_US-lessac-medium.onnx";
+        private String language = "auto";
+        private int threads = 0; // 0 = auto-size from available CPUs
 
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -106,5 +108,9 @@ public class AssistantProperties {
         public void setPiperBinary(String piperBinary) { this.piperBinary = piperBinary; }
         public String getPiperModel() { return piperModel; }
         public void setPiperModel(String piperModel) { this.piperModel = piperModel; }
+        public String getLanguage() { return language; }
+        public void setLanguage(String language) { this.language = language; }
+        public int getThreads() { return threads; }
+        public void setThreads(int threads) { this.threads = threads; }
     }
 }

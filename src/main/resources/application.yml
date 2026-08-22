@@ -45,9 +45,13 @@ assistant:
   voice:
     enabled: true
     whisper-binary: ./tools/whisper/whisper-cli
-    whisper-model: ./tools/whisper/models/ggml-base.en.bin
+    whisper-model: ./tools/whisper/models/ggml-small.bin   # multilingual 'small'; base.en is faster but
+                                                           # markedly worse with accents and can't do Hindi
     piper-binary: ./tools/piper/piper
     piper-model: ./tools/piper/voices/en_US-lessac-medium.onnx
+    language: auto     # 'auto' detects the spoken language (needed for Hindi/Hinglish).
+                       # Force with e.g. 'en' or 'hi' if auto-detect guesses wrong.
+    threads: 0         # 0 = auto (leaves cores free for Ollama). Raise for faster transcription.
 
 logging:
   level:

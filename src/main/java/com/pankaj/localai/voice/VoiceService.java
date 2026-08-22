@@ -66,7 +66,15 @@ public class VoiceService {
                 "-f", wavFile.toString(),
                 "-otxt",
                 "-of", outPrefix.toString(),
-                "-nt" // no timestamps in output
+                "-nt", // no timestamps in output
+                // whisper.cpp defaults to -l en, which would force English even on a multilingual
+                // model. "auto" lets it detect the spoken language (handles Hindi/Hinglish and
+                // gives Indian-accented English a better shot than the English-only models).
+                "-l", config.getLanguage(),
+                // whisper.cpp defaults to 4 threads regardless of machine size. Measured on a
+                // 12-core box: 4 threads took 21s for an 11s clip, 8 threads took 12s. Leave a few
+                // cores free so transcription doesn't starve the Ollama process running alongside.
+                "-t", String.valueOf(resolveThreads())
         );
         pb.redirectErrorStream(true);
         addNativeLibraryPath(pb, config.getWhisperBinary());
@@ -116,6 +124,14 @@ public class VoiceService {
             throw new IOException("Piper did not produce audio. Output:\n" + log);
         }
         return outWav;
+    }
+
+    /** Configured thread count, or an auto-size that leaves headroom for the LLM process. */
+    private int resolveThreads() {
+        if (config.getThreads() > 0) {
+            return config.getThreads();
+        }
+        return Math.max(2, Math.min(8, Runtime.getRuntime().availableProcessors() - 4));
     }
 
     private void requireAvailable() {
