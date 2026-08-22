@@ -146,7 +146,7 @@ so a failure like this is diagnosable from the logs instead of guesswork next ti
 
 - **Java 21**, **Spring Boot 4** (REST API + static web UI)
 - **[LangChain4j](https://docs.langchain4j.dev/)** — tool-calling `AiServices`, chat memory, RAG plumbing
-- **[Ollama](https://ollama.com)** — serves the local LLM (default: `qwen2.5:7b`; `llama3.2` 3B is faster but less reliable at tool-calling)
+- **[Ollama](https://ollama.com)** — serves the local LLM (default: `llama3.2` for speed; switch to `qwen2.5:7b` in the header dropdown when tool reliability matters)
 - **all-MiniLM-L6-v2** (ONNX, in-process) — local embeddings, no server
 - **Apache PDFBox** (via LangChain4j) — PDF parsing for doc ingestion
 - **whisper.cpp** + **Piper** (optional, one-time setup) — fully local speech-to-text / text-to-speech
@@ -387,7 +387,7 @@ of actual measured impact on this project:
 | Key | Default | Meaning |
 |---|---|---|
 | `assistant.ollama.base-url` | `http://localhost:11434` | Where Ollama is listening |
-| `assistant.ollama.chat-model` | `qwen2.5:7b` | Which local model to use (`llama3.2` for a faster/smaller footprint) |
+| `assistant.ollama.chat-model` | `llama3.2` | Startup model. `llama3.2` is ~2.7x faster on CPU; switch to `qwen2.5:7b` in the UI when you need reliable tool use |
 | `assistant.rag.docs-path` | `./data/docs` | Folder scanned for PDF/txt/md documents |
 | `assistant.rag.code-path` | `./data/code` | Folder scanned for source code |
 | `assistant.rag.chunk-size` / `chunk-overlap` | `500` / `50` | Text splitting for embeddings |
