@@ -109,6 +109,7 @@ public class DocumentIngestionService {
             document.metadata().put("file_name", originalFileName);
             document.metadata().put("source", "docs");
             ingestor().ingest(document);
+            storeManager.recordDocument(originalFileName, estimateChunks(document), preview(document));
             storeManager.saveDocsStore();
             log.info("Ingested uploaded file: {}", originalFileName);
             return true;
@@ -125,12 +126,25 @@ public class DocumentIngestionService {
         try {
             Document document = loadDocument(path, label);
             ingestor().ingest(document);
+            storeManager.recordDocument(label, estimateChunks(document), preview(document));
             log.info("Ingested doc: {}", label);
             return true;
         } catch (Exception e) {
             log.error("Failed to ingest {}: {}", path, e.getMessage());
             return false;
         }
+    }
+
+    /** Opening slice of the document, stored so it can be shown without a vector search. */
+    private String preview(Document document) {
+        String text = document.text().strip().replaceAll("\\s+", " ");
+        return text.length() > 900 ? text.substring(0, 900) + "…" : text;
+    }
+
+    /** Rough chunk count for the document registry - mirrors the splitter's sizing. */
+    private int estimateChunks(Document document) {
+        int size = Math.max(1, props.getRag().getChunkSize());
+        return Math.max(1, (int) Math.ceil(document.text().length() / (double) size));
     }
 
     private EmbeddingStoreIngestor ingestor() {

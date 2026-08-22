@@ -4,6 +4,7 @@ import com.pankaj.localai.config.AssistantProperties;
 import com.pankaj.localai.tools.CodeSearchTool;
 import com.pankaj.localai.tools.DocSearchTool;
 import com.pankaj.localai.tools.FileTools;
+import com.pankaj.localai.tools.ListDocumentsTool;
 import com.pankaj.localai.tools.WeatherTool;
 import com.pankaj.localai.tools.WebSearchTool;
 import com.pankaj.localai.tools.WikidataSearchTool;
@@ -43,6 +44,7 @@ public class AssistantService {
     private final DocSearchTool docSearchTool;
     private final CodeSearchTool codeSearchTool;
     private final FileTools fileTools;
+    private final ListDocumentsTool listDocumentsTool;
     private final WikidataSearchTool wikidataSearchTool;
     private final WikipediaSearchTool wikipediaSearchTool;
     private final WebSearchTool webSearchTool;
@@ -57,6 +59,7 @@ public class AssistantService {
                              DocSearchTool docSearchTool,
                              CodeSearchTool codeSearchTool,
                              FileTools fileTools,
+                             ListDocumentsTool listDocumentsTool,
                              WikidataSearchTool wikidataSearchTool,
                              WikipediaSearchTool wikipediaSearchTool,
                              WebSearchTool webSearchTool,
@@ -65,6 +68,7 @@ public class AssistantService {
         this.docSearchTool = docSearchTool;
         this.codeSearchTool = codeSearchTool;
         this.fileTools = fileTools;
+        this.listDocumentsTool = listDocumentsTool;
         this.wikidataSearchTool = wikidataSearchTool;
         this.wikipediaSearchTool = wikipediaSearchTool;
         this.webSearchTool = webSearchTool;
@@ -93,8 +97,8 @@ public class AssistantService {
         this.assistant = AiServices.builder(Assistant.class)
                 .chatModel(chatModel)
                 .chatMemoryProvider(sessionId -> memories.computeIfAbsent(sessionId, id -> MessageWindowChatMemory.withMaxMessages(20)))
-                .tools(docSearchTool, codeSearchTool, fileTools, wikidataSearchTool, wikipediaSearchTool,
-                        webSearchTool, weatherTool)
+                .tools(docSearchTool, codeSearchTool, fileTools, listDocumentsTool, wikidataSearchTool,
+                        wikipediaSearchTool, webSearchTool, weatherTool)
                 .build();
         this.currentModel = modelName;
     }
