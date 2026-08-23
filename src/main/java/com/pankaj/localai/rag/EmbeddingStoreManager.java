@@ -4,6 +4,7 @@ import com.pankaj.localai.config.AssistantProperties;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
+import static dev.langchain4j.store.embedding.filter.MetadataFilterBuilder.metadataKey;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -148,6 +149,27 @@ public class EmbeddingStoreManager {
     /** Ingested document names with their chunk counts. */
     public Map<String, Integer> listDocuments() {
         return new LinkedHashMap<>(docNames);
+    }
+
+    /**
+     * Deletes one document: its chunks leave the vector store and its entry leaves the registry.
+     * Chunks are matched on the file_name metadata written at ingest time.
+     *
+     * @return true if the document was known and removed
+     */
+    public synchronized boolean removeDocument(String fileName) {
+        if (fileName == null || !docNames.containsKey(fileName)) {
+            return false;
+        }
+        docsStore.removeAll(metadataKey("file_name").isEqualTo(fileName));
+        docNames.remove(fileName);
+        docPreviews.remove(fileName);
+        if (fileName.equals(lastIngested)) {
+            lastIngested = null;
+        }
+        saveDocsStore();
+        log.info("Removed document '{}' — {} document(s) remain", fileName, docNames.size());
+        return true;
     }
 
     public synchronized void clearDocuments() {

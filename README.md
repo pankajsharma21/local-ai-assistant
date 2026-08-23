@@ -357,6 +357,8 @@ of actual measured impact on this project:
 | `POST` | `/api/ingest/code` | — | (Re)index everything in `assistant.rag.code-path` |
 | `POST` | `/api/ingest/path` | `{"path": "/any/file/or/folder"}` | Index a file or directory from anywhere on disk |
 | `POST` | `/api/ingest/upload` | multipart `file` | Index a file handed to us directly (browser attach button) |
+| `GET` | `/api/documents` | — | List indexed documents with chunk counts |
+| `DELETE` | `/api/documents?name=…` | — | Remove a document from the index (chunks *and* registry entry) |
 | `GET` | `/api/models` | — | List Ollama models you've pulled, plus which one is currently active |
 | `POST` | `/api/model` | `{"model": "llama3.2"}` | Switch the live model — no restart, conversation memory carries over |
 | `GET` | `/api/health` | — | Checks Ollama reachability, active model, voice status |

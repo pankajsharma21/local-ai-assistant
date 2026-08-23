@@ -1,9 +1,12 @@
 package com.pankaj.localai.web;
 
 import com.pankaj.localai.rag.CodeIngestionService;
+import com.pankaj.localai.rag.EmbeddingStoreManager;
 import com.pankaj.localai.rag.DocumentIngestionService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -13,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 /**
  * Triggers the "chunk -> embed -> store" pipeline for docs and code (see DocumentIngestionService /
@@ -26,10 +30,35 @@ public class IngestController {
 
     private final DocumentIngestionService documentIngestionService;
     private final CodeIngestionService codeIngestionService;
+    private final EmbeddingStoreManager storeManager;
 
-    public IngestController(DocumentIngestionService documentIngestionService, CodeIngestionService codeIngestionService) {
+    public IngestController(DocumentIngestionService documentIngestionService,
+                            CodeIngestionService codeIngestionService,
+                            EmbeddingStoreManager storeManager) {
         this.documentIngestionService = documentIngestionService;
         this.codeIngestionService = codeIngestionService;
+        this.storeManager = storeManager;
+    }
+
+    /** Documents currently indexed, with their chunk counts. */
+    @GetMapping("/api/documents")
+    public Map<String, Integer> listDocuments() {
+        return storeManager.listDocuments();
+    }
+
+    /**
+     * Removes a document from the index. Needed because ingestion was previously one-way: anything
+     * added by mistake (or a test file) stayed searchable forever, and deleting the registry entry
+     * alone did not help - the registry rebuilds itself from the vector store on restart, so the
+     * chunks have to go too.
+     */
+    @DeleteMapping("/api/documents")
+    public ResponseEntity<Map<String, Object>> deleteDocument(@RequestParam("name") String name) {
+        boolean removed = storeManager.removeDocument(name);
+        if (!removed) {
+            return ResponseEntity.status(404).body(Map.of("removed", false, "message", "No indexed document named " + name));
+        }
+        return ResponseEntity.ok(Map.of("removed", true, "name", name, "remaining", storeManager.listDocuments().size()));
     }
 
     @PostMapping("/api/ingest/docs")
