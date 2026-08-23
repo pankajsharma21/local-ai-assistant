@@ -43,9 +43,8 @@
   }
   .bug { border-left: 3px solid #16a34a; background: #f2fbf5; padding: 8px 12px; margin: 0 0 10px; page-break-inside: avoid; }
   .bug h3 { margin-top: 0; color: #15803d; }
-  .page-break { page-break-before: always; }
   .toc { background: #f6f7fb; border: 1px solid #dfe3f5; border-radius: 5px; padding: 10px 14px; margin-bottom: 6px; }
-  .toc ol { margin: 0; padding-left: 18px; }
+  .toc ol { margin: 0; padding-left: 18px; column-count: 2; column-gap: 22px; }
   .muted { color: #5c6376; font-size: 9.5pt; }
 </style>
 </head>
@@ -60,14 +59,20 @@ Repo: github.com/pankajsharma21/local-ai-assistant</div>
 <ol>
   <li>30-second pitch</li>
   <li>Architecture — ek engine, alag data</li>
-  <li>RAG kya hai (simple explanation)</li>
+  <li>RAG kya hai</li>
   <li>Saare tools (8 tools)</li>
-  <li>Voice — speech in aur speech out</li>
+  <li>Voice — speech in aur out</li>
   <li>UI features</li>
-  <li>Real bugs jo mile aur fix kiye ← <strong>sabse important</strong></li>
-  <li>Performance findings (real measurements)</li>
+  <li>Java vs Python — kyun Java?</li>
+  <li>Agentic AI — abhi kahan, aage kya</li>
+  <li>Code kahan hai (structure)</li>
+  <li>REST API</li>
+  <li>Config — important values</li>
+  <li>Real bugs ← <strong>most important</strong></li>
+  <li>Performance findings</li>
+  <li>Setup &amp; run</li>
   <li>Live demo flow</li>
-  <li>Anticipated interview questions</li>
+  <li>Anticipated questions</li>
 </ol>
 </div>
 
@@ -80,7 +85,8 @@ bas data aur tool alag hain."</div>
 
 <div class="warn"><strong>Accuracy note:</strong> "fully offline" mat bolna. LLM, embeddings, vector
 store, voice — sab local hai, lekin Wikidata / Wikipedia / web search / weather internet call karte
-hain. Isliye <strong>"local-first"</strong> bolo, "fully offline" nahi. Interviewer isko pakad sakta hai.</div>
+hain. Isliye <strong>"local-first"</strong> bolo. Khud se ye trade-off bataana zyada strong lagta hai
+bajaye interviewer ke pakadne se.</div>
 
 <h2>2. Architecture — ek engine, alag data</h2>
 <p>Ye sabse important insight hai jo poore project ko explain karta hai:</p>
@@ -103,15 +109,15 @@ kis sawaal ke liye chahiye. Doc assistant aur code assistant ka code almost iden
 <table>
 <tr><th>Layer</th><th>Kya use kiya</th><th>Kyun</th></tr>
 <tr><td>LLM</td><td>Ollama + qwen2.5:7b</td><td>Local, free, ek command se setup</td></tr>
-<tr><td>Orchestration</td><td>LangChain4j</td><td>Java ka LangChain — tool calling, memory, RAG</td></tr>
+<tr><td>Orchestration</td><td>LangChain4j 1.19</td><td>Java ka LangChain — tool calling, memory, RAG</td></tr>
 <tr><td>Embeddings</td><td>all-MiniLM-L6-v2 (ONNX)</td><td><strong>JVM ke andar chalta hai</strong> — koi server nahi</td></tr>
 <tr><td>Vector store</td><td>InMemory + JSON file</td><td>Single user ke liye kaafi; Chroma/pgvector overkill</td></tr>
 <tr><td>Speech-to-text</td><td>whisper.cpp (small, multilingual)</td><td>Local binary, Hindi/Hinglish support</td></tr>
 <tr><td>Text-to-speech</td><td>Piper</td><td>Local binary, koi cloud TTS nahi</td></tr>
-<tr><td>Web/API</td><td>Spring Boot 4</td><td>REST + static UI</td></tr>
+<tr><td>Web/API</td><td>Spring Boot 4.1 / Java 21</td><td>REST + static UI</td></tr>
 </table>
 
-<h2>3. RAG kya hai (simple explanation)</h2>
+<h2>3. RAG kya hai</h2>
 <div class="say">"RAG = Retrieval-Augmented Generation. Closed-book exam vs open-book exam socho.
 Normal LLM closed-book hai — sirf training ka yaad hai, mere documents nahi jaanta. RAG usko
 open-book bana deta hai: sawaal aane pe main related paragraphs apne documents se dhoond ke LLM ko
@@ -125,9 +131,12 @@ dikha deta hoon, phir wo unko padh ke jawaab deta hai."</div>
   <li>Sawaal aaye to usko bhi vector banao, cosine similarity se similar chunks dhoondo</li>
   <li>Wo chunks LLM ko prompt mein do: "ye rahe excerpts, isi se jawaab do"</li>
 </ol>
-
 <p class="muted"><strong>Agar poochhe "embedding bhi local hai?":</strong> Haan — all-MiniLM ONNX model
 seedha JVM ke andar chalta hai, Ollama ko bhi call nahi karta. Ek moving part kam.</p>
+<p class="muted"><strong>Fine-tuning se difference:</strong> Fine-tuning model ke weights badalta hai —
+mehnga, slow, aur naya document add karne pe dobara karna padta hai. RAG weights ko chhoota nahi,
+sirf retrieval layer badalta hai — isliye naya document 2 second mein add ho jaata hai. Mere use case
+(apne documents pe sawaal) ke liye RAG hi sahi choice hai.</p>
 
 <h2>4. Saare tools (8 tools)</h2>
 <table>
@@ -157,7 +166,7 @@ folder tak sandboxed hain, kyunki koi ingested document mein prompt-injection ho
 nahi, kyunki wo same trust level hai jaise file text editor mein kholna. Iske badle server sirf
 <code>127.0.0.1</code> pe bind hota hai, poore network pe nahi."</div>
 
-<h2>5. Voice — speech in aur speech out</h2>
+<h2>5. Voice — speech in aur out</h2>
 <div class="say">"Voice koi alag AI pipeline nahi hai — sirf <strong>input/output wrapper</strong> hai.
 Mic se audio → whisper.cpp (local STT) → wahi text usi assistant ko → jawaab → Piper (local TTS) →
 speaker. Agent ka core logic bilkul nahi badalta."</div>
@@ -169,21 +178,130 @@ speaker. Agent ka core logic bilkul nahi badalta."</div>
 
 <h2>6. UI features</h2>
 <ul>
-  <li><strong>Recent chats</strong> — localStorage mein save, click karke resume; server-side memory bhi continue hoti hai (sirf transcript replay nahi)</li>
+  <li><strong>Recent chats</strong> — browser ke <code>localStorage</code> mein, server pe nahi. Click karke
+      resume; server-side memory bhi usi sessionId se continue hoti hai (sirf transcript replay nahi)</li>
   <li><strong>In-chat ingestion</strong> — 📎 button se menu: upload file / docs folder / code folder / koi bhi path</li>
-  <li><strong>Live model switcher</strong> — header dropdown, bina restart ke model badlo, chat memory bhi carry over hoti hai</li>
+  <li><strong>Live model switcher</strong> — header dropdown, bina restart ke model badlo, chat memory carry over</li>
   <li><strong>Markdown rendering</strong>, auto-grow composer, typing indicator, copy button, read-aloud</li>
   <li><strong>Document delete</strong> — <code>DELETE /api/documents?name=…</code></li>
 </ul>
-
 <div class="say">"Model switching ke liye real refactor karna pada — LangChain4j ka AiServices
 build time pe ChatModel bake kar deta hai, koi <code>setModel()</code> nahi hai. Isliye
-<code>AssistantService</code> proxy ko rebuild karta hai, lekin chat memory apne khud ke map mein
-rakhta hai jo har rebuild ko same lambda se milti hai — isliye model badalne pe history nahi jaati."</div>
+<code>AssistantService.switchModel()</code> proxy ko rebuild karta hai, lekin chat memory apne khud ke
+map mein rakhta hai jo har rebuild ko same lambda se milti hai — isliye model badalne pe history nahi jaati."</div>
 
-<h2>7. Real bugs jo mile aur fix kiye</h2>
-<p class="muted">Ye section sabse zyada value deta hai interview mein — dikhata hai ki tumne sirf
-tutorial follow nahi kiya, actually debug kiya. Har bug ka <strong>symptom → root cause → fix</strong> yaad rakho.</p>
+<h2>7. Java vs Python — kyun Java?</h2>
+<p class="muted">Ye almost guaranteed poochha jaayega. Pehle ek fact clear karo:</p>
+<div class="say">"Is project mein <strong>Python ki ek line bhi nahi hai</strong>. Log maante hain AI
+ke liye Python zaroori hai, lekin wo sirf <em>model training</em> ke liye sach hai. Main model train
+nahi kar raha — main use <em>consume</em> kar raha hoon, aur uske liye Java bilkul capable hai."</div>
+
+<p><strong>Har piece kis language mein hai:</strong></p>
+<table>
+<tr><th>Component</th><th>Language</th><th>Java se kaise baat karta hai</th></tr>
+<tr><td>Ollama (model server)</td><td>Go</td><td>HTTP REST — language-agnostic</td></tr>
+<tr><td>Embeddings (all-MiniLM)</td><td>ONNX Runtime (C++)</td><td>Official <strong>Java bindings</strong> — in-process, JVM ke andar</td></tr>
+<tr><td>whisper.cpp (STT)</td><td>C++</td><td>Process invoke (<code>ProcessBuilder</code>)</td></tr>
+<tr><td>Piper (TTS)</td><td>C++</td><td>Process invoke</td></tr>
+<tr><td>Orchestration, RAG, tools, API</td><td><strong>Java 21</strong></td><td>—</td></tr>
+</table>
+
+<h3>Java choose karne ke real reasons</h3>
+<ul>
+  <li><strong>Enterprise integration:</strong> Real AI feature kisi existing system mein jaata hai — jo
+      mostly Java/Spring hai. Alag Python microservice khada karne se ek network hop, ek deployment,
+      aur ek team ka context switch badhta hai.</li>
+  <li><strong>Type safety:</strong> LangChain4j mein tool ek <code>@Tool</code>-annotated Java method hai.
+      Method signature se hi tool schema ban jaata hai — parameter names aur types compiler check karta
+      hai. Python mein wo runtime dict hota hai.</li>
+  <li><strong>Ek hi process:</strong> Embeddings JVM ke andar chalte hain — koi sidecar service nahi, koi
+      serialization overhead nahi.</li>
+  <li><strong>Production ops:</strong> JVM ka threading, monitoring, connection pooling, aur Spring ka
+      dependency injection — ye sab already mature hai.</li>
+</ul>
+<div class="warn"><strong>Honest bhi raho:</strong> "Python ka ecosystem AI mein aage hai — naye papers,
+naye libraries wahan pehle aate hain, aur training/fine-tuning ke liye Python hi practical hai. Lekin
+<em>inference aur orchestration</em> ke liye Java ka gap almost khatam ho gaya hai. LangChain4j
+LangChain ke feature-parity ke kaafi paas hai." — ye balanced answer zyada credible lagta hai.</div>
+
+<h2>8. Agentic AI — abhi kahan, aage kya</h2>
+<div class="say">"Agentic AI ka matlab hai model sirf jawaab na de, balki <strong>decide kare ki kya
+karna hai</strong> aur khud actions le. Chatbot poochhne pe jawaab deta hai; agent goal deke kaam karta hai."</div>
+
+<p><strong>Agent ke 4 building blocks, aur CHINTU mein unki state — honestly:</strong></p>
+<table>
+<tr><th>Block</th><th>Matlab</th><th>CHINTU mein</th></tr>
+<tr><td>Tool use</td><td>Bahar ki duniya se interact karna</td><td>✅ 8 tools, model khud chunta hai</td></tr>
+<tr><td>Memory</td><td>Pichhli baatein yaad rakhna</td><td>⚠️ Per-session, 20 messages ka window. App restart pe gayab</td></tr>
+<tr><td>Planning</td><td>Multi-step plan banana aur follow karna</td><td>❌ Nahi — single-hop hai. Chain maine code mein hardcode ki hai</td></tr>
+<tr><td>Actions</td><td>Duniya badalna, sirf padhna nahi</td><td>❌ Sab tools <strong>read-only</strong> hain</td></tr>
+</table>
+
+<div class="say">"To imaandaari se — CHINTU ek <strong>tool-calling assistant</strong> hai, poora agent
+nahi. Do cheezein missing hain: planning loop aur write actions."</div>
+
+<p><strong>Isko poora agentic banane ke liye kya karna padega:</strong></p>
+<ol>
+  <li><strong>Planning loop</strong> — abhi ek user message = ek model call (+ tool calls). Agent ke liye
+      chahiye: <em>plan → act → observe → phir sochna → repeat</em>, jab tak goal poora na ho. Ek
+      <code>while</code> loop with max-iterations guard.</li>
+  <li><strong>Write-capable tools</strong> — <code>writeFile</code>, <code>runCommand</code>, <code>sendEmail</code>.
+      Ye sabse risky part hai: LLM ko write access dene ka matlab hai ki ek prompt-injected document
+      usse cheezein delete karwa sakta hai. Isliye alag sandboxed workspace + destructive actions pe
+      human confirmation chahiye.</li>
+  <li><strong>Reflection</strong> — apna output khud check kare aur galti pe retry kare.</li>
+  <li><strong>Persistent memory</strong> — conversation summaries ko usi vector store mein daal do, taaki
+      sessions ke beech bhi yaad rahe.</li>
+</ol>
+<div class="warn"><strong>Ye answer strong kyun hai:</strong> "Haan mera project agentic hai" bol dena
+weak hai. Blocks ka framework dena, phir kaunsa hai aur kaunsa nahi ye honestly batana, aur risk
+(prompt injection + write access) pehchaanna — ye dikhata hai ki tum buzzword nahi bol rahe, actually
+samajhte ho.</div>
+
+<h2>9. Code kahan hai (structure)</h2>
+<pre>com/pankaj/localai/
+├─ LocalAiApplication.java     Spring Boot entry point
+├─ assistant/
+│   ├─ Assistant.java          @SystemMessage interface (LC4j proxies it)
+│   └─ AssistantService.java   ★ model switch, memory, artifact filter
+├─ rag/
+│   ├─ DocumentIngestionService.java   PDF/txt/md → embeddings
+│   ├─ CodeIngestionService.java       source files → embeddings
+│   └─ EmbeddingStoreManager.java      stores + registry + persistence
+├─ tools/                      8 @Tool classes
+├─ voice/                      VoiceService (whisper/piper), VoiceController
+├─ web/                        Chat / Ingest / Model / Health controllers
+└─ config/                     AssistantProperties, ModelConfig</pre>
+<p class="muted">Agar "sabse important class kaunsi hai" poochhe — <code>AssistantService.java</code>.
+Wahi model switching, chat memory ownership, aur artifact filtering handle karta hai.</p>
+
+<h2>10. REST API</h2>
+<table>
+<tr><th>Method</th><th>Path</th><th>Kaam</th></tr>
+<tr><td>POST</td><td><code>/api/chat</code></td><td>Kuch bhi poochho — agent khud tools chunta hai</td></tr>
+<tr><td>POST</td><td><code>/api/ingest/docs</code> · <code>/code</code></td><td>Configured folder re-index</td></tr>
+<tr><td>POST</td><td><code>/api/ingest/path</code></td><td>Disk pe kahin se bhi file/folder index karo</td></tr>
+<tr><td>POST</td><td><code>/api/ingest/upload</code></td><td>Browser attach button se aayi file</td></tr>
+<tr><td>GET / DELETE</td><td><code>/api/documents</code></td><td>List with chunk counts / remove by name</td></tr>
+<tr><td>GET / POST</td><td><code>/api/models</code> · <code>/api/model</code></td><td>List pulled models / live switch</td></tr>
+<tr><td>GET</td><td><code>/api/health</code></td><td>Ollama reachable, active model, voice status</td></tr>
+<tr><td>POST</td><td><code>/api/voice/transcribe</code> · <code>/speak</code> · <code>/chat</code></td><td>STT / TTS / poora voice loop</td></tr>
+</table>
+
+<h2>11. Config — important values</h2>
+<table>
+<tr><th>Key</th><th>Value</th><th>Kyun yahi</th></tr>
+<tr><td><code>chat-model</code></td><td><code>qwen2.5:7b</code></td><td>Measured: llama3.2 se end-to-end tez</td></tr>
+<tr><td><code>chunk-size</code> / <code>overlap</code></td><td>500 / 50</td><td>Overlap se sentence boundary pe context nahi tootta</td></tr>
+<tr><td><code>max-results</code></td><td>6</td><td>5 bade PDF ke liye kam tha; 10 accurate tha par CPU pe slow</td></tr>
+<tr><td><code>min-score</code></td><td><strong>0.35</strong></td><td>0.6 pe valid matches silently drop ho rahe the — Bug 7 dekho</td></tr>
+<tr><td><code>files.allowed-root</code></td><td><code>.</code></td><td>LLM ke tool calls ka sandbox</td></tr>
+<tr><td><code>server.address</code></td><td><code>127.0.0.1</code></td><td>Deliberate — ingest/path koi bhi file padh sakta hai</td></tr>
+</table>
+
+<h2>12. Real bugs jo mile aur fix kiye</h2>
+<p class="muted">Ye section sabse zyada value deta hai — dikhata hai ki tumne sirf tutorial follow nahi
+kiya, actually debug kiya. Har bug ka <strong>symptom → root cause → fix</strong> yaad rakho.</p>
 
 <div class="bug">
 <h3>Bug 1 — Code ingestion 0 files (apne hi naam ki wajah se)</h3>
@@ -227,9 +345,9 @@ se decode karke, 16kHz mono resample karke, khud WAV bytes encode kiye.</p>
 <div class="bug">
 <h3>Bug 6 — Intel iGPU chup-chaap output corrupt kar raha tha</h3>
 <p><strong>Symptom:</strong> "What is 2+2?" ka jawaab <code>[]([]([]([]...</code> infinite. <strong>Root cause:</strong>
-Maine speed test ke liye <code>OLLAMA_IGPU_ENABLE=1</code> kiya tha. <code>ollama ps</code> "100% GPU" dikha
+Speed test ke liye <code>OLLAMA_IGPU_ENABLE=1</code> kiya tha. <code>ollama ps</code> "100% GPU" dikha
 raha tha, lekin Vulkan path generation corrupt kar raha tha. <strong>Fix:</strong> CPU-only par wapas.
-<strong>Lesson:</strong> maine sirf <em>latency</em> measure ki thi, <em>output quality</em> nahi — speed benchmark
+<strong>Lesson:</strong> sirf <em>latency</em> measure ki thi, <em>output quality</em> nahi — speed benchmark
 is failure ko kabhi nahi pakadta.</p>
 </div>
 
@@ -250,7 +368,7 @@ filter + ek retry. Aur retry karte waqt failed exchange ko memory se hata bhi di
 galti pe maafi maangne lagta tha ("It seems like I made a mistake") — jo internal machinery user ko dikha deta hai.</p>
 </div>
 
-<h2>8. Performance findings (real measurements)</h2>
+<h2>13. Performance findings</h2>
 <p class="muted">Ye numbers actual measure kiye hain — interview mein "maine measure kiya" bolna bahut strong hai.</p>
 <table>
 <tr><th>Task (warm model)</th><th>llama3.2 (3B)</th><th>qwen2.5:7b</th></tr>
@@ -267,16 +385,25 @@ calls ho rahe the. Isliye asli metric tokens-per-second nahi, <strong>round-trip
 <h3>Aur kya seekha</h3>
 <ul>
   <li><strong>Cold start</strong> sabse bada cost tha — Ollama 5 min baad model unload kar deta hai, phir har
-      sawaal 1–2 min reload pe kharch karta tha. <code>OLLAMA_KEEP_ALIVE</code> se fix.</li>
+      sawaal 1–2 min reload pe kharch karta tha. <code>OLLAMA_KEEP_ALIVE=-1</code> se fix.</li>
   <li>Lekin sirf keep-alive lagane se <strong>naya problem</strong> aaya — dono models RAM mein pin ho gaye (7.7GB),
-      machine choke ho gayi. <code>OLLAMA_MAX_LOADED_MODELS=1</code> bhi lagana zaroori tha.</li>
-  <li><strong>Prompt overhead:</strong> system prompt + 8 tool descriptions = <strong>2066 tokens</strong>, yaani
+      free RAM 452MB pe aa gayi, qwen timeout hone laga. <code>OLLAMA_MAX_LOADED_MODELS=1</code> bhi lagana zaroori tha.</li>
+  <li><strong>Prompt overhead:</strong> system prompt + tool descriptions = <strong>2066 tokens</strong>, yaani
       4096 context ka aadha hissa har request pe. Trim karke ~1000 kiya.</li>
   <li><strong>RAM ≠ speed:</strong> 2.4GB free karne se sirf 8% farak pada. RAM <em>model load</em> ko affect karti
-      hai, <em>generation speed</em> ko nahi — wo CPU-bound hai.</li>
+      hai, <em>generation speed</em> ko nahi — wo CPU-bound hai. Asli fix sirf dedicated GPU hai.</li>
 </ul>
 
-<h2>9. Live demo flow</h2>
+<h2>14. Setup &amp; run</h2>
+<pre>ollama pull qwen2.5:7b     # ~4.7GB, one time
+./run.sh                   # ya: ./mvnw spring-boot:run
+# browser: http://localhost:8088</pre>
+<p class="muted">Ollama <code>~/.local/ollama</code> pe portable install hai — is machine pe root access
+nahi tha, isliye system-wide install possible nahi. <code>run.sh</code> CPU-only env variables bhi set
+karta hai. Agar interviewer poochhe "kya main chala sakta hoon" — README mein step-by-step setup hai,
+sirf Ollama aur Java 21 chahiye.</p>
+
+<h2>15. Live demo flow</h2>
 <ol>
   <li><code>GET /api/health</code> — Ollama reachable, model, voice, web search sab green</li>
   <li>📎 se koi document upload karo → "indexed" confirmation</li>
@@ -291,18 +418,22 @@ calls ho rahe the. Isliye asli metric tokens-per-second nahi, <strong>round-trip
 pehle app start karke ek dummy sawaal pooch lo taaki model RAM mein warm ho jaaye — warna pehla jawaab
 2 minute lega aur awkward lagega.</div>
 
-<h2>10. Anticipated interview questions</h2>
+<h2>16. Anticipated questions</h2>
 <table>
 <tr><th>Sawaal</th><th>Jawaab</th></tr>
-<tr><td>Ye fully offline hai?</td><td>LLM, embeddings, vector store, voice — sab local. Lekin Wikidata/Wikipedia/web/weather internet call karte hain. Isliye <strong>local-first</strong> bolo. Ye conscious trade-off tha: accuracy ke liye controlled exception.</td></tr>
+<tr><td>Ye fully offline hai?</td><td>LLM, embeddings, vector store, voice — sab local. Lekin 4 tools internet call karte hain. Isliye <strong>local-first</strong>. Ye conscious trade-off tha: accuracy ke liye controlled exception.</td></tr>
 <tr><td>Cloud API kyun nahi?</td><td>Privacy (confidential docs/code kisi server pe nahi jaate) aur cost (per-request charge nahi).</td></tr>
+<tr><td>AI ke liye Python nahi chahiye?</td><td>Training ke liye haan, <em>inference/orchestration</em> ke liye nahi. Is project mein Python zero hai. Section 7 dekho.</td></tr>
+<tr><td>Ye agentic AI hai?</td><td>Tool-calling assistant hai, poora agent nahi — planning loop aur write actions missing hain. Section 8 dekho.</td></tr>
 <tr><td>Tool calling kaise kaam karta hai?</td><td>LLM ko tool descriptions dikhte hain, wo khud decide karta hai. Main if-else route nahi karta.</td></tr>
+<tr><td>RAG vs fine-tuning?</td><td>Fine-tuning weights badalta hai — mehnga aur har naye doc pe repeat. RAG retrieval layer badalta hai — naya doc 2 second mein.</td></tr>
 <tr><td>Model kaise badloge?</td><td>Header dropdown se live, ya <code>application.yml</code> mein ek line. Restart nahi chahiye.</td></tr>
-<tr><td>Production mein scale kaise?</td><td>Vector store ko pgvector/Chroma mein swap, GPU wali machine, aur per-user session isolation.</td></tr>
+<tr><td>Prompt injection ka risk?</td><td>Haan — isliye LLM ke file tools sandboxed hain aur sab tools read-only. Write access dene se pehle alag sandbox + human confirmation chahiye.</td></tr>
+<tr><td>Production mein scale kaise?</td><td>Vector store → pgvector/Chroma, GPU machine, per-user session isolation, aur auth (abhi 127.0.0.1 bind pe depend karta hai).</td></tr>
 <tr><td>Multiple users?</td><td>Haan — har session ka apna <code>sessionId</code> aur memory hai.</td></tr>
 <tr><td>Sabse bada challenge?</td><td>Bug 6 (iGPU corruption) ya Bug 8 (JSON leak) sunao — dono mein root cause non-obvious tha aur prompt se fix nahi hua, code se hua.</td></tr>
-<tr><td>Agla step kya?</td><td>Agentic: write-capable tools (sandboxed workspace), multi-step planning loop, long-term memory. Abhi sab tools read-only hain.</td></tr>
 <tr><td>Testing kaise ki?</td><td>Har feature app ke through end-to-end verify kiya — logs se confirm kiya ki sahi tool fire hua, sirf output dekh ke maan nahi liya.</td></tr>
+<tr><td>Agla step kya?</td><td>Planning loop, sandboxed write tools, persistent memory across sessions, aur GPU pe move.</td></tr>
 </table>
 
 <h2>Bottom line — ek line yaad rakho</h2>

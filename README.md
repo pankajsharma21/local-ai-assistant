@@ -414,7 +414,7 @@ of actual measured impact on this project:
 | `assistant.rag.docs-path` | `./data/docs` | Folder scanned for PDF/txt/md documents |
 | `assistant.rag.code-path` | `./data/code` | Folder scanned for source code |
 | `assistant.rag.chunk-size` / `chunk-overlap` | `500` / `50` | Text splitting for embeddings |
-| `assistant.rag.max-results` / `min-score` | `5` / `0.6` | Retrieval cutoffs |
+| `assistant.rag.max-results` / `min-score` | `6` / `0.35` | Retrieval cutoffs. `0.6` was silently dropping valid matches — all-MiniLM scores genuinely relevant chunks around 0.4-0.6 |
 | `assistant.files.allowed-root` | `.` | Sandbox root for the LLM's `readFile`/`listFiles` **tool calls** |
 | `server.address` | `127.0.0.1` | Binds to localhost only — deliberate, since `/api/ingest/path` can read any file this OS user can access; don't widen this without adding auth |
 | `assistant.web-search.enabled` | `false` | Turn on `searchWeb` (needs the key below); `searchWikipedia` always works regardless |
