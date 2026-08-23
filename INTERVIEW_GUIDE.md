@@ -1,263 +1,287 @@
-# Interview mein kaise explain karein (Hinglish guide)
+# CHINTU — Interview Guide (Hinglish)
+
+> **PDF version:** [`docs/CHINTU-Interview-Guide.pdf`](docs/CHINTU-Interview-Guide.pdf) — print karke le
+> ja sakte ho. Source: [`docs/interview-guide.html`](docs/interview-guide.html).
 
 Ye guide tumhare liye hai — jab interviewer poochhe "ye project kya hai, explain karo", to step-by-step
 kaise bolna hai, wo yahan hai. Ratta mat maaro, bas flow samajh lo, apne words mein bolo.
 
----
+**Contents**
 
-## 1. Sabse pehle, one-liner (30 second pitch)
-
-> "Maine ek Java-based AI assistant banaya hai jo **local-first** chalta hai — matlab koi bhi
-> OpenAI ya ChatGPT jaisi cloud API use nahi ki. Model, embeddings, sab kuch mere hi laptop pe chal
-> raha hai. Ye assistant normal chat kar sakta hai, apne documents se sawaal-jawaab (RAG), apne
-> codebase ke baare mein sawaal, aur current/latest facts ke liye Wikipedia ya live web search bhi
-> — aur ye sab ek hi engine se chalte hain, bas data/tool alag hai."
-
-Ye line bol ke ruk jao. Interviewer agla sawaal khud puchhega — usi se pura conversation flow
-karega.
-
----
-
-## 2. "Offline kyun banaya, cloud API kyun nahi use ki?"
-
-> "Do reasons: **privacy** aur **cost**. Agar main apne personal documents ya company ka code kisi
-> cloud AI ko bhej doon, to wo data unke server pe chala jaata hai — jo sensitive projects mein
-> allowed nahi hota. Doosra, cloud API ka per-request cost lagta hai. Local model mein ek baar
-> download karo, phir jitna chaho utna free use karo — sirf apne machine ki CPU/RAM lagti hai."
+1. [30-second pitch](#1-30-second-pitch)
+2. [Architecture — ek engine, alag data](#2-architecture--ek-engine-alag-data)
+3. [RAG kya hai](#3-rag-kya-hai-simple-explanation)
+4. [Saare tools (8 tools)](#4-saare-tools-8-tools)
+5. [Voice — speech in aur speech out](#5-voice--speech-in-aur-speech-out)
+6. [UI features](#6-ui-features)
+7. [**Real bugs jo mile aur fix kiye**](#7-real-bugs-jo-mile-aur-fix-kiye) ← sabse important
+8. [Performance findings](#8-performance-findings-real-measurements)
+9. [Live demo flow](#9-live-demo-flow)
+10. [Anticipated interview questions](#10-anticipated-interview-questions)
 
 ---
 
-## 3. "Architecture samjhao"
+## 1. 30-second pitch
 
-Yahan pe bolo ki **ek hi 'brain' hai, teen alag tareeke se use hota hai**:
+> "Maine CHINTU banaya hai — ek Java-based AI assistant jo **local-first** hai. Model mere apne laptop
+> pe chalta hai Ollama ke through, koi OpenAI ya ChatGPT API nahi. Ye normal chat kar sakta hai, mere
+> documents se sawaal-jawaab (RAG), mere codebase ke baare mein sawaal, current facts web se, weather,
+> aur voice mein bol bhi sakta hai aur sun bhi sakta hai. Sab ek hi engine se — bas data aur tool alag hain."
 
-> "Core mein ek LLM hai — Qwen 2.5 (7B) — jo **Ollama** naam ke tool ke through localhost pe chal raha
-> hai, bilkul ek chhota web server ki tarah. Java app usse HTTP request bhejta hai, jaise hum kisi
-> normal REST API ko call karte hain — bas ye API humare hi laptop pe hai.
->
-> Java side pe maine **LangChain4j** library use ki hai — ye Java ka LangChain hai. Isme ek concept
-> hai **'tool calling'** — matlab LLM ko main options deta hoon (jaise 'searchDocs', 'searchCode',
-> 'readFile') aur LLM khud decide karta hai ki sawaal ke hisaab se kaunsa tool call karna hai."
+Ye line bol ke ruk jao. Interviewer agla sawaal khud poochhega.
 
-Agar poochhe "tool calling kaise kaam karta hai", to:
-
-> "Jab user kuch poochta hai, LLM pehle dekhta hai ki uske paas kaunse tools hain aur unka description
-> kya hai. Agar sawaal documents ke baare mein hai, wo khud decide karke `searchDocs` tool ko call
-> karta hai, uska result leta hai, aur phir us result ke base pe final answer banata hai. Ye sab
-> automatic hota hai — main if-else likh ke route nahi karta, LLM khud samajhta hai."
+> [!WARNING]
+> **"fully offline" mat bolna.** LLM, embeddings, vector store, voice — sab local hai, lekin Wikidata /
+> Wikipedia / web search / weather internet call karte hain. Isliye **"local-first"** bolo. Interviewer
+> isko pakad sakta hai, aur khud se bolna zyada strong lagta hai.
 
 ---
 
-## 4. "RAG kya hota hai, simple mein batao"
+## 2. Architecture — ek engine, alag data
 
-> "RAG ka matlab hai **Retrieval-Augmented Generation** — matlab jawaab dene se pehle, related
-> information 'retrieve' (dhoond) karo, phir usko use karke generate karo.
->
-> Socho ek closed-book exam vs open-book exam. Normal LLM closed-book hai — sirf jo train time pe
-> seekha wahi jaanta hai, mere personal notes nahi jaanta. RAG use karke maine usko open-book bana
-> diya — jab bhi koi sawaal aata hai, main uske related paragraphs apne documents se dhoond ke LLM
-> ko dikha deta hoon, phir wo un paragraphs ko padh ke jawaab deta hai."
+Ye sabse important insight hai jo poore project ko explain karta hai:
 
-Technical steps (agar deep mein jaana ho):
+```
+Input (text / voice)
+      ↓
+  Assistant  ← LangChain4j AiServices (ek LLM + ek memory + toolbox)
+      ↓ model khud decide karta hai kaunsa tool chahiye
+  ┌───────────────┬──────────────┬──────────────┬─────────────┐
+ searchDocs    searchCode    searchWeb      getWeather    readFile
+ (PDF/notes)   (codebase)   (live web)     (Open-Meteo)  (filesystem)
+      ↓
+  Ollama (qwen2.5:7b) → jawaab → text ya speech (Piper TTS)
+```
 
-> "1. Documents ko chhote chunks mein todta hoon.
-> 2. Har chunk ko ek 'embedding model' se numbers ki list (vector) mein convert karta hoon — ye
->    vector uss chunk ka 'meaning' capture karta hai.
-> 3. Ye vectors ek local JSON file mein store hote hain — ye mera chhota sa vector database hai.
-> 4. Jab sawaal aata hai, usko bhi vector mein convert karta hoon, aur sabse similar-meaning wale
->    chunks dhoondta hoon — cosine similarity se.
-> 5. Wo chunks LLM ko prompt mein de deta hoon: 'ye rahe relevant excerpts, isi se answer karo'."
+> "Core mein ek hi LLM hai. Maine if-else likh ke route nahi kiya — LangChain4j ke `@Tool` annotation se
+> maine tools register kiye, aur model khud padhta hai ki kaunsa tool kis sawaal ke liye chahiye. Doc
+> assistant aur code assistant ka code almost identical hai — bas ek 'docs' vector store dekhta hai,
+> doosra 'code'. Isliye ye 5 alag app nahi, ek engine hai."
 
-Agar poochhe "embedding model bhi local hai?":
+### Tech stack
 
-> "Haan — maine ek chhota model (all-MiniLM) use kiya jo seedha JVM ke andar, in-process chalta hai
-> — ONNX runtime ke through. Isko Ollama ko call karne ki bhi zaroorat nahi, isliye ek aur moving
-> part kam ho gaya."
-
----
-
-## 5. "Code assistant aur doc assistant mein farak kya hai?"
-
-Ye sabse important insight hai — bolna zaroor:
-
-> "Farak sirf **data source** ka hai, logic same hai. `DocSearchTool` aur `CodeSearchTool` dono ka
-> code almost identical hai — bas ek 'docs' vector store search karta hai, doosra 'code' vector
-> store. Dono ek hi pipeline follow karte hain: chunk -> embed -> store -> search. Isliye maine bola
-> — ye 'ek hi engine, alag data' wala architecture hai, chaar alag app nahi banaye."
+| Layer | Kya use kiya | Kyun |
+|---|---|---|
+| LLM | Ollama + qwen2.5:7b | Local, free, ek command se setup |
+| Orchestration | LangChain4j | Java ka LangChain — tool calling, memory, RAG |
+| Embeddings | all-MiniLM-L6-v2 (ONNX) | **JVM ke andar chalta hai** — koi server nahi |
+| Vector store | InMemory + JSON file | Single user ke liye kaafi; Chroma/pgvector overkill |
+| Speech-to-text | whisper.cpp (small, multilingual) | Local binary, Hindi/Hinglish support |
+| Text-to-speech | Piper | Local binary, koi cloud TTS nahi |
+| Web/API | Spring Boot 4 | REST + static UI |
 
 ---
 
-## 6. "Documents kaise upload karte ho — kya sirf ek fixed folder mein daalna padta hai?"
+## 3. RAG kya hai (simple explanation)
 
-> "Shuru mein haan, sirf `data/docs` folder mein file daalke ek button click karna padta tha. User
-> feedback mila ki ye ChatGPT/Claude jaisa nahi lag raha — wahan seedha chat ke andar attach kar
-> sakte ho. Maine teen tareeke add kiye:
->
-> 1. **📎 Attach button** — chat box ke paas paperclip icon, click karo to OS ka native file dialog
->    khulta hai, koi bhi file kahin se bhi pick karo — turant upload + ingest ho jaata hai, koi
->    manual copy-paste nahi.
-> 2. **Path paste karo** — sidebar mein ek text box hai, kisi bhi file/folder ka absolute path daalo
->    (jaise `/home/user/Documents/report.pdf`), 'Ingest' click karo — bina browser upload ke, seedha
->    server disk se padh leta hai.
-> 3. Purana bulk-folder-scan button bhi hai, jo `data/docs` ko re-scan karta hai.
->
-> Teeno same pipeline use karte hain (chunk -> embed -> store) — bas file kaise andar aati hai, wo
-> alag hai."
+> "RAG = Retrieval-Augmented Generation. Closed-book exam vs open-book exam socho. Normal LLM
+> closed-book hai — sirf training ka yaad hai, mere documents nahi jaanta. RAG usko open-book bana deta
+> hai: sawaal aane pe main related paragraphs apne documents se dhoond ke LLM ko dikha deta hoon, phir
+> wo unko padh ke jawaab deta hai."
 
-Agar poochhe "security ka kya, ye toh koi bhi file padh sakta hai?":
+**Technical steps:**
 
-> "Achha sawaal. Maine do alag trust-level define kiye: `FileTools` (jo LLM khud call karta hai,
-> apne reasoning se) sirf project folder tak sandboxed hai — kyunki wo kabhi kisi retrieved document
-> mein chhupi hui prompt-injection se manipulate ho sakta hai. Lekin `/api/ingest/path` insaan khud
-> call kar raha hai, apna hi path type karke — ye same trust level hai jaise koi file text editor mein
-> khol rahe ho. Isliye maine ise sandbox nahi kiya, lekin ek dusra safeguard add kiya: server ab sirf
-> `127.0.0.1` (localhost) pe bind hota hai, poore network pe nahi — taaki koi doosra device isi
-> feature ka galat use na kar sake."
+1. Document ko chhote chunks mein todo (500 chars, 50 overlap)
+2. Har chunk ko embedding model se vector (numbers) mein badlo — meaning capture hota hai
+3. Vectors JSON file mein store karo (mera chhota vector DB)
+4. Sawaal aaye to usko bhi vector banao, cosine similarity se similar chunks dhoondo
+5. Wo chunks LLM ko prompt mein do: "ye rahe excerpts, isi se jawaab do"
+
+**Agar poochhe "embedding bhi local hai?"** — Haan, all-MiniLM ONNX model seedha JVM ke andar chalta
+hai, Ollama ko bhi call nahi karta. Ek moving part kam.
 
 ---
 
-## 7. "Agar LLM ko current/latest info nahi pata, to?"
+## 4. Saare tools (8 tools)
 
-Ye ek real problem hai jo maine khud face kiya — bolna zaroor, kyunki ye genuine debugging story hai:
+| Tool | Kaam | Setup chahiye? |
+|---|---|---|
+| `searchDocs` | User ke PDF/notes/markdown mein search | Nahi |
+| `searchCode` | Ingested codebase mein search | Nahi |
+| `listDocuments` | Kaunse documents ingested hain (+ latest ka content) | Nahi |
+| `readFile` / `listFiles` | Filesystem read (**sandboxed**) | Nahi |
+| `searchWikidata` | Structured facts — "latest version of X" ke liye best | Nahi, no key |
+| `searchWikipedia` | Encyclopedic context | Nahi, no key |
+| `searchWeb` | Live web (Marginalia); Tavily optional | Nahi, no key |
+| `getWeather` | Current weather + forecast (Open-Meteo) | Nahi, no key |
 
-> "Jab maine assistant se poochha 'latest Java LTS version kya hai', usne confidently galat jawaab
-> diya — kyunki LLM ka training data ek fixed date tak hi hai, uske baad ka kuch nahi jaanta, lekin
-> wo ye 'nahi pata' bolne ke bajaye guess kar deta hai. Isko fix karne ke liye maine do naye tools
-> add kiye:
->
-> - `searchWikipedia` — hamesha ON rehta hai, koi API key nahi chahiye. Wikipedia ka official REST
->   API use karta hai.
-> - `searchWeb` — real-time web search, Tavily API (AI agents ke liye specially bana hai) use karta
->   hai. Ye opt-in hai — free API key chahiye, isliye by default OFF rehta hai.
->
-> Maine system prompt mein aaj ki actual date bhi inject ki hai, aur model ko explicitly bola hai:
-> 'agar sawaal current/latest ke baare mein hai, apni memory pe trust mat karo, tool call karo'."
+### Fallback chain — code mein, prompt mein nahi
 
-Agar poochhe "ye poore project ke 'offline' claim se conflict nahi karta?":
+```
+searchWeb → Tavily (agar key hai) → Marginalia → Wikidata → Wikipedia
+```
 
-> "Bilkul sahi observation hai. Maine ye clearly documented rakha hai — ye do tools hi hain jo
-> internet call karte hain, baaki sab kuch (chat, doc RAG, code RAG, embeddings, voice) 100% local
-> hai. `searchWeb` bhi by default OFF hai — user ko explicitly apni API key dalke enable karna
-> padta hai. Ye ek conscious trade-off hai: accuracy ke liye ek chhota si controlled exception."
+> "Ye chain maine **code mein** likhi hai, prompt mein nahi. Kyunki maine test karke dekha — model ek
+> tool call karta hai, uska 'not configured' message padhta hai, aur wahin ruk jaata hai. Dusra tool
+> call kabhi nahi karta. Ye chhote models ki known limitation hai: **single-hop tool use**. Prompt mein
+> likhne se fix nahi hua, isliye deterministic fallback code mein daali."
 
-**Ek aur real bug jo mila (Jackson version mismatch — ye bhi interesting hai):**
+### Security: do alag trust levels
 
-> "Jab maine ye Wikipedia tool test kiya, ek error mila: 'Type definition error: JsonNode'. Turns out
-> Spring Boot 4 ne apna internal JSON library Jackson 3 pe migrate kar diya hai (naya package name
-> `tools.jackson`), lekin LangChain4j abhi bhi purana classic Jackson 2 (`com.fasterxml.jackson`) use
-> karta hai. Maine JsonNode import classic Jackson se kiya tha, lekin Spring ka auto-configured HTTP
-> client sirf naye Jackson 3 ko samajhta tha — isliye deserialize fail ho raha tha. Fix: response ko
-> raw String ki tarah fetch kiya, phir apne khud ke classic-Jackson `ObjectMapper` se manually parse
-> kiya — Spring ke auto-conversion se bypass kar diya."
-
-Ye bhi bolna GOOD hai — shows you actually debug real framework-version issues, not just happy-path code.
-
-**Model size ka real limitation bhi honestly bata sakte ho:**
-
-> "Shuru mein maine chhota model (llama3.2, 3B) use kiya tha — wo kabhi-kabhi tool call karna hi
-> bhool jaata tha, ya tool ka result use kiye bina hi 'according to Wikipedia' bol ke apni purani
-> memory se jawaab de deta tha. Maine do cheezein fix ki: (1) default model ko `qwen2.5:7b` (bada,
-> 7B) pe switch kiya, aur (2) system prompt ko zyada **directive** banaya — sirf 'tool available hai'
-> bolna kaafi nahi tha, maine explicit trigger words diye ('latest', 'current', 'as of' waale sawaal
-> pe tool call karna MANDATORY hai, reply likhne se pehle). In dono ke combination se reliability
-> bahut improve hui — chhote models imperative, keyword-based instructions follow karte hain,
-> soft 'use good judgment' wale hints se zyada reliably."
-
-**Real user-testing se do aur bugs mile (ye story bolna best hai — khud mujhe nahi mile the, user ne
-mujhe use karke dikhaye):**
-
-> "Jab maine khud test kiya tab sab sahi laga, lekin jab actual user ne app use kiya to same
-> question ('latest Java version') do baar galat jawaab de raha tha. Debug karke do real bugs mile:
->
-> Bug 1 — **model sirf ek tool call karta hai, chain nahi karta**: system prompt mein maine likha tha
-> 'searchWeb call karo, agar wo not-configured bole to searchWikipedia call karo'. Lekin model
-> searchWeb call karta, 'not configured' padhta, aur wahin ruk jaata — dusra tool call kabhi nahi
-> karta! Fix: maine ye fallback logic **code mein** move kar di — ab `WebSearchTool.searchWeb()`
-> khud hi andar se `WikipediaSearchTool` ko call kar deta hai jab Tavily configure nahi hai. Ab model
-> ki decision pe depend nahi karta, guaranteed chalta hai.
->
-> Bug 2 — **galat Wikipedia API use ki thi**: maine `opensearch` endpoint use kiya tha jo sirf title
-> ke SHURU se match karta hai. Query 'latest Java version' ke liye ye ZERO results deta hai kyunki
-> koi bhi Wikipedia article isse start nahi hota! Maine directly test karke confirm kiya. Fix:
-> `action=query&list=search` (Wikipedia ka real full-text search) use kiya — ye 'Java version
-> history' article ko sahi se dhoond leta hai chahe query kaisa bhi phrase ho."
-
-Ye poora example bolna GOOD hai kyunki ye dikhata hai: (a) khud test karna kaafi nahi hota, real user
-testing zaroori hai, (b) LLM ki 'multi-step reasoning' pe blindly trust nahi karna chahiye — jo
-guarantee chahiye wo code mein likho, prompt mein mat chhodo, (c) tumne actual API behavior verify
-kiya (opensearch vs full-text search), guess nahi kiya.
+> "`readFile`/`listFiles` — jo **LLM khud call karta hai** — project folder tak sandboxed hain, kyunki
+> koi ingested document mein prompt-injection ho sakta hai. Lekin `/api/ingest/path` — jo **insaan khud**
+> path type karke call karta hai — sandboxed nahi, kyunki wo same trust level hai jaise file text editor
+> mein kholna. Iske badle server sirf `127.0.0.1` pe bind hota hai, poore network pe nahi."
 
 ---
 
-## 8. "Voice wala part kaise kaam karta hai?"
+## 5. Voice — speech in aur speech out
 
-> "Voice bhi is architecture mein sirf ek **input/output wrapper** hai — agent ka core logic bilkul
-> nahi badalta. Mic se audio aata hai, `whisper.cpp` (ek local speech-to-text tool) usse text mein
-> convert karta hai, phir wahi text normal chat ki tarah usi assistant ko jaata hai. Jawaab wapas
-> text mein aata hai, aur `Piper` (local text-to-speech) usse audio mein convert kar deta hai.
-> Dono cheezein — STT aur TTS — command-line tools hain jo local chalte hain, koi cloud voice API
-> nahi use ki."
+> "Voice koi alag AI pipeline nahi hai — sirf **input/output wrapper** hai. Mic se audio →
+> whisper.cpp (local STT) → wahi text usi assistant ko → jawaab → Piper (local TTS) → speaker. Agent ka
+> core logic bilkul nahi badalta."
 
-*(Honest disclaimer: agar tumne voice actually setup nahi kiya hai, to bol do: "Voice ka code/
-architecture ready hai, lekin main abhi tak whisper.cpp aur Piper install nahi kar paaya kyunki
-usme cmake/build tools chahiye — setup script maine likh diya hai, `setup_voice.sh`.")*
+- **Model:** whisper `small` multilingual — Hindi/Hinglish aur Indian accent handle karta hai
+- **Language:** `auto` — whisper ka default `en` hai, isko explicitly set karna padta hai
+- **UI:** har reply pe 🔊 button, aur sidebar mein "read replies aloud automatically" toggle
 
 ---
 
-## 9. "Kaunsi tech stack use ki?"
+## 6. UI features
 
-> "Java 21, Spring Boot for REST API. LangChain4j for the agent/tool-calling/RAG logic. Ollama for
-> serving the LLM. Local vector store JSON files mein persist hote hain. PDFBox for PDF parsing."
+- **Recent chats** — localStorage mein save, click karke resume; server-side memory bhi continue hoti
+  hai (sirf transcript replay nahi)
+- **In-chat ingestion** — 📎 button se menu: upload file / docs folder / code folder / koi bhi path
+- **Live model switcher** — header dropdown, bina restart ke model badlo, chat memory bhi carry over
+- **Markdown rendering**, auto-grow composer, typing indicator, copy button, read-aloud
+- **Document delete** — `DELETE /api/documents?name=…`
 
----
-
-## 10. "Sabse interesting challenge kya aaya?"
-
-Real cheez jo tumne khud face ki (impressive hai kyunki genuine hai):
-
-> "Jab maine code-search ingest kiya, initially 0 files ingest ho rahe the. Debug karne pe pata
-> chala ki mera 'ignore folder' check poore absolute path pe chal raha tha, aur default code folder
-> ka naam khud 'data/code' tha — 'data' word IGNORED_DIRS list mein tha, isliye har file skip ho
-> rahi thi apne hi naam ki wajah se! Fix kiya by relativizing the path before checking against
-> ignore list."
-
-Ye bolna GOOD hai — shows real debugging, not just copy-paste.
+> "Model switching ke liye real refactor karna pada — LangChain4j ka AiServices build time pe ChatModel
+> bake kar deta hai, koi `setModel()` nahi hai. Isliye `AssistantService` proxy ko rebuild karta hai,
+> lekin chat memory apne khud ke map mein rakhta hai jo har rebuild ko same lambda se milti hai —
+> isliye model badalne pe history nahi jaati."
 
 ---
 
-## 11. Live demo flow (agar demo dena ho)
+## 7. Real bugs jo mile aur fix kiye
 
-1. `curl /api/health` dikhao — Ollama reachable hai, model kaunsa load hai.
-2. `curl -X POST /api/ingest/docs` — docs index ho gaye.
-3. Chat se poochho: *"what is the secret test phrase in my notes?"* — dikhao ki exact wahi line
-   milti hai jo tumne apne notes mein likhi thi (proof ki ye guess nahi kar raha, genuinely retrieve
-   kar raha hai).
-4. `curl -X POST /api/ingest/code` — apna hi source code index karo.
-5. Poochho: *"where is chat memory configured?"* — codebase ke baare mein sahi jagah point karta
-   hai.
-6. Ek general knowledge sawaal poochho (jaise capital of France) — dikhao ki bina tool call kiye
-   bhi normal chat kaam karta hai.
-7. Poochho: *"what is the latest Java LTS version?"* — dikhao ki ye Wikipedia se live data laata
-   hai, apni purani/galat memory se nahi. (Agar model tool call na kare, ye khud ek achha talking
-   point hai — section 7 dekho.)
-8. 📎 attach button click karo, koi bhi file pick karo (kahin se bhi, `data/docs` ke bahar) — turant
-   ingest confirmation dikhega. Phir usi file ke baare mein poochho — dikhao ki ye bhi turant
-   searchable hai, koi manual copy-paste ki zaroorat nahi.
+Ye section sabse zyada value deta hai interview mein — dikhata hai ki tumne sirf tutorial follow nahi
+kiya, actually debug kiya. Har bug ka **symptom → root cause → fix** yaad rakho.
+
+### Bug 1 — Code ingestion 0 files (apne hi naam ki wajah se)
+
+**Symptom:** Code ingest karne pe 0 files.
+**Root cause:** Ignore-folder check poore *absolute path* pe chal raha tha, aur default folder ka naam
+hi `data/code` tha — `data` IGNORED_DIRS mein tha, isliye har file skip.
+**Fix:** path ko root ke relative karke check kiya.
+
+### Bug 2 — Spring Boot 4 vs LangChain4j: do alag Jackson
+
+**Symptom:** `Type definition error: JsonNode`.
+**Root cause:** Spring Boot 4 naya **Jackson 3** (`tools.jackson`) use karta hai, LangChain4j purana
+**Jackson 2** (`com.fasterxml`). RestClient ka auto-converter Jackson-2 ka JsonNode samajh hi nahi paata.
+**Fix:** response ko raw String lo, apne ObjectMapper se parse karo.
+
+### Bug 3 — Wikipedia ka galat endpoint
+
+**Symptom:** "latest Java version" pe kuch nahi milta.
+**Root cause:** `opensearch` endpoint sirf *title prefix* match karta hai — ye query zero results deti hai.
+**Fix:** `action=query&list=search` (real full-text search) use kiya.
+
+### Bug 4 — Spring UriBuilder ne SPARQL kha liya
+
+**Symptom:** Wikidata tool silently fail.
+**Root cause:** UriBuilder `{...}` ko URI template placeholder samajhta hai, aur SPARQL braces se bhara
+hota hai → `"Not enough variable values available to expand"`.
+**Fix:** pre-encoded `java.net.URI` khud banaya.
+
+### Bug 5 — Voice: browser WAV record kar hi nahi sakta
+
+**Symptom:** Har recording pe `failed to read audio file`.
+**Root cause:** MediaRecorder sirf **webm/opus** deta hai, WAV nahi — aur whisper.cpp webm nahi padh sakta.
+**Fix:** ffmpeg install nahi tha (aur root access bhi nahi), isliye browser mein hi Web Audio API se
+decode karke, 16kHz mono resample karke, khud WAV bytes encode kiye.
+
+### Bug 6 — Intel iGPU chup-chaap output corrupt kar raha tha
+
+**Symptom:** "What is 2+2?" ka jawaab `[]([]([]([]...` infinite.
+**Root cause:** Speed test ke liye `OLLAMA_IGPU_ENABLE=1` kiya tha. `ollama ps` "100% GPU" dikha raha
+tha, lekin Vulkan path generation corrupt kar raha tha.
+**Fix:** CPU-only par wapas.
+**Lesson:** sirf *latency* measure ki thi, *output quality* nahi — speed benchmark is failure ko kabhi
+nahi pakadta.
+
+### Bug 7 — min-score chup-chaap valid matches drop kar raha tha
+
+**Symptom:** "documents mein hai lekin bolta hai nahi mila".
+**Root cause:** `min-score 0.6`, lekin all-MiniLM genuinely relevant chunks ko 0.4–0.6 deta hai. Valid
+matches silently filter ho rahe the.
+**Fix:** 0.35 kiya, aur ab tool *log karta hai* ki best rejected score kya tha — taaki agli baar ye bug
+dikhe, chhupe nahi.
+
+### Bug 8 — Model raw JSON leak kar raha tha
+
+**Symptom:** "hi" bolne pe jawaab aaya `{"name": "listDocuments", "parameters": {}}`.
+**Root cause:** llama3.2 tool-call blob ko *text ki tarah print* kar raha tha — real tool call nahi tha.
+Prompt mein mana karne se bhi nahi ruka (3 mein se 3 baar hua).
+**Fix:** code mein filter + ek retry. Aur retry karte waqt failed exchange ko memory se hata bhi diya,
+warna model apni hi galti pe maafi maangne lagta tha ("It seems like I made a mistake") — jo internal
+machinery user ko dikha deta hai.
 
 ---
 
-## 12. Anticipated follow-up questions
+## 8. Performance findings (real measurements)
 
-| Sawaal | Chhota jawaab |
+Ye numbers actual measure kiye hain — interview mein "maine measure kiya" bolna bahut strong hai.
+
+| Task (warm model) | llama3.2 (3B) | qwen2.5:7b |
+|---|---|---|
+| Greeting | 2+ min, raw JSON leak | **3.8s**, clean |
+| Follow-up (memory) | galat, rambling | **7.6s**, correct |
+| "Write Java code to add 2 numbers" | 2m 02s | **35s** |
+
+> "Sabse counter-intuitive finding: **chhota model actually slow nikla**. Raw token rate mein 3B tez hai
+> (7.5 vs 3.7 tok/s), lekin wo bekaar ke tool calls pe **extra round-trips** kharch karta hai — Ollama ke
+> logs mein maine dekha ek sawaal pe do model calls ho rahe the. Isliye asli metric tokens-per-second
+> nahi, **round-trips per answer** hai."
+
+### Aur kya seekha
+
+- **Cold start** sabse bada cost tha — Ollama 5 min baad model unload kar deta hai, phir har sawaal 1–2
+  min reload pe kharch karta tha. `OLLAMA_KEEP_ALIVE` se fix.
+- Lekin sirf keep-alive lagane se **naya problem** aaya — dono models RAM mein pin ho gaye (7.7GB),
+  machine choke ho gayi. `OLLAMA_MAX_LOADED_MODELS=1` bhi lagana zaroori tha.
+- **Prompt overhead:** system prompt + 8 tool descriptions = **2066 tokens**, yaani 4096 context ka aadha
+  hissa har request pe. Trim karke ~1000 kiya.
+- **RAM ≠ speed:** 2.4GB free karne se sirf 8% farak pada. RAM *model load* ko affect karti hai,
+  *generation speed* ko nahi — wo CPU-bound hai.
+
+---
+
+## 9. Live demo flow
+
+1. `GET /api/health` — Ollama reachable, model, voice, web search sab green
+2. 📎 se koi document upload karo → "indexed" confirmation
+3. Us document ke baare mein poochho → exact line milti hai (proof: guess nahi, retrieve kar raha hai)
+4. "What is the latest Java LTS version?" → Wikidata se live data, purani memory se nahi
+5. "today weather in gurugram" → real current temperature
+6. Header dropdown se model switch karo → bina restart ke, chat history bani rehti hai
+7. Kisi reply pe 🔊 click karo → wo bol ke sunata hai
+8. Sidebar mein "New conversation", phir purani chat pe wapas click karo → resume ho jaati hai
+
+> [!TIP]
+> **Demo tip:** CPU-only pe har jawaab 30–100 second leta hai. Interview se pehle app start karke ek dummy
+> sawaal pooch lo taaki model RAM mein warm ho jaaye — warna pehla jawaab 2 minute lega aur awkward lagega.
+
+---
+
+## 10. Anticipated interview questions
+
+| Sawaal | Jawaab |
 |---|---|
-| "Production mein scale kaise karoge?" | "Vector store ko real DB (pgvector/Chroma) mein swap karunga, aur agar GPU available ho to aur bhi bada model (llama3.1:8b ya bigger) try karunga." |
-| "Security kaisi hai?" | "`readFile`/`listFiles` tools sandboxed hain — sirf project folder ke andar hi kaam karte hain, path traversal (../../etc/passwd) block hai." |
-| "Multiple users ek saath use kar sakte hain?" | "Haan, har session ka apna alag `sessionId` aur memory hai — ek dusre se mix nahi hota." |
-| "Model badalna ho to?" | "Sirf `application.yml` mein ek line badlo — koi code change nahi." |
-| "Kyun Ollama, kyun seedha llama.cpp nahi?" | "Ollama easy setup deta hai — ek command se model pull, run, aur REST API mil jaati hai. Direct llama.cpp integration zyada low-level hai." |
+| Ye fully offline hai? | LLM, embeddings, vector store, voice — sab local. Lekin Wikidata/Wikipedia/web/weather internet call karte hain. Isliye **local-first** bolo. Ye conscious trade-off tha: accuracy ke liye controlled exception. |
+| Cloud API kyun nahi? | Privacy (confidential docs/code kisi server pe nahi jaate) aur cost (per-request charge nahi). |
+| Tool calling kaise kaam karta hai? | LLM ko tool descriptions dikhte hain, wo khud decide karta hai. Main if-else route nahi karta. |
+| Model kaise badloge? | Header dropdown se live, ya `application.yml` mein ek line. Restart nahi chahiye. |
+| Production mein scale kaise? | Vector store ko pgvector/Chroma mein swap, GPU wali machine, aur per-user session isolation. |
+| Multiple users? | Haan — har session ka apna `sessionId` aur memory hai. |
+| Sabse bada challenge? | Bug 6 (iGPU corruption) ya Bug 8 (JSON leak) sunao — dono mein root cause non-obvious tha aur prompt se fix nahi hua, code se hua. |
+| Agla step kya? | Agentic: write-capable tools (sandboxed workspace), multi-step planning loop, long-term memory. Abhi sab tools read-only hain. |
+| Testing kaise ki? | Har feature app ke through end-to-end verify kiya — logs se confirm kiya ki sahi tool fire hua, sirf output dekh ke maan nahi liya. |
 
 ---
 
-**Bottom line jo yaad rakhna hai:** *"Ek model, ek agent, chhah tools, alag-alag data — voice sirf
-ek input/output wrapper hai upar se, aur Wikipedia/web-search hi sirf do jagah hain jahan main
-jaan-boojh kar internet ko touch karta hoon."* Isi ek line ke around pura explanation ghumta hai.
+## Bottom line — ek line yaad rakho
+
+> "Ek model, ek agent, aath tools, alag-alag data — voice sirf input/output wrapper hai upar se, aur
+> internet sirf wahan touch karta hoon jahan local data se jawaab mil hi nahi sakta."

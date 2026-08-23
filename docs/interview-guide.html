@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CHINTU — Interview Guide</title>
+<style>
+  @page { size: A4; margin: 13mm 14mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 10.5pt; line-height: 1.55; color: #1a1d29; margin: 0;
+  }
+  h1 { font-size: 22pt; margin: 0 0 4px; color: #2d3ba0; }
+  h1 + .sub { color: #5c6376; font-size: 11pt; margin-bottom: 18px; }
+  h2 {
+    font-size: 14pt; margin: 22px 0 8px; color: #2d3ba0;
+    border-bottom: 2px solid #dfe3f5; padding-bottom: 4px; page-break-after: avoid;
+  }
+  h3 { font-size: 11.5pt; margin: 14px 0 5px; color: #1a1d29; page-break-after: avoid; }
+  p { margin: 0 0 8px; }
+  ul, ol { margin: 0 0 9px; padding-left: 20px; }
+  li { margin-bottom: 3px; }
+  code {
+    background: #eef0f7; padding: 1px 4px; border-radius: 3px;
+    font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 9.3pt;
+  }
+  pre {
+    background: #f6f7fb; border: 1px solid #dfe3f5; border-radius: 5px;
+    padding: 8px 10px; overflow-x: auto; font-size: 9pt; margin: 0 0 9px;
+    white-space: pre-wrap; page-break-inside: avoid;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 0 0 10px; font-size: 9.5pt; page-break-inside: avoid; }
+  th, td { border: 1px solid #dfe3f5; padding: 5px 7px; text-align: left; vertical-align: top; }
+  th { background: #eef0f7; font-weight: 600; }
+  .say {
+    border-left: 3px solid #6d8bff; background: #f5f7ff;
+    padding: 8px 12px; margin: 0 0 10px; page-break-inside: avoid;
+  }
+  .say::before { content: "Aap bolo: "; font-weight: 700; color: #2d3ba0; font-size: 9pt; }
+  .warn {
+    border-left: 3px solid #d97706; background: #fff8ee;
+    padding: 8px 12px; margin: 0 0 10px; page-break-inside: avoid;
+  }
+  .bug { border-left: 3px solid #16a34a; background: #f2fbf5; padding: 8px 12px; margin: 0 0 10px; page-break-inside: avoid; }
+  .bug h3 { margin-top: 0; color: #15803d; }
+  .page-break { page-break-before: always; }
+  .toc { background: #f6f7fb; border: 1px solid #dfe3f5; border-radius: 5px; padding: 10px 14px; margin-bottom: 6px; }
+  .toc ol { margin: 0; padding-left: 18px; }
+  .muted { color: #5c6376; font-size: 9.5pt; }
+</style>
+</head>
+<body>
+
+<h1>CHINTU — Interview Guide</h1>
+<div class="sub">Local-first AI assistant in Java · Spring Boot + LangChain4j + Ollama<br>
+Repo: github.com/pankajsharma21/local-ai-assistant</div>
+
+<div class="toc">
+<strong>Contents</strong>
+<ol>
+  <li>30-second pitch</li>
+  <li>Architecture — ek engine, alag data</li>
+  <li>RAG kya hai (simple explanation)</li>
+  <li>Saare tools (8 tools)</li>
+  <li>Voice — speech in aur speech out</li>
+  <li>UI features</li>
+  <li>Real bugs jo mile aur fix kiye ← <strong>sabse important</strong></li>
+  <li>Performance findings (real measurements)</li>
+  <li>Live demo flow</li>
+  <li>Anticipated interview questions</li>
+</ol>
+</div>
+
+<h2>1. 30-second pitch</h2>
+<div class="say">"Maine CHINTU banaya hai — ek Java-based AI assistant jo <strong>local-first</strong> hai. Model
+mere apne laptop pe chalta hai Ollama ke through, koi OpenAI ya ChatGPT API nahi. Ye normal chat kar
+sakta hai, mere documents se sawaal-jawaab (RAG), mere codebase ke baare mein sawaal, current facts
+web se, weather, aur voice mein bol bhi sakta hai aur sun bhi sakta hai. Sab ek hi engine se —
+bas data aur tool alag hain."</div>
+
+<div class="warn"><strong>Accuracy note:</strong> "fully offline" mat bolna. LLM, embeddings, vector
+store, voice — sab local hai, lekin Wikidata / Wikipedia / web search / weather internet call karte
+hain. Isliye <strong>"local-first"</strong> bolo, "fully offline" nahi. Interviewer isko pakad sakta hai.</div>
+
+<h2>2. Architecture — ek engine, alag data</h2>
+<p>Ye sabse important insight hai jo poore project ko explain karta hai:</p>
+<pre>Input (text / voice)
+      ↓
+  Assistant  ← LangChain4j AiServices (ek LLM + ek memory + toolbox)
+      ↓ model khud decide karta hai kaunsa tool chahiye
+  ┌───────────────┬──────────────┬──────────────┬─────────────┐
+ searchDocs    searchCode    searchWeb      getWeather    readFile
+ (PDF/notes)   (codebase)   (live web)     (Open-Meteo)  (filesystem)
+      ↓
+  Ollama (qwen2.5:7b) → jawaab → text ya speech (Piper TTS)</pre>
+
+<div class="say">"Core mein ek hi LLM hai. Maine if-else likh ke route nahi kiya — LangChain4j ke
+<code>@Tool</code> annotation se maine tools register kiye, aur model khud padhta hai ki kaunsa tool
+kis sawaal ke liye chahiye. Doc assistant aur code assistant ka code almost identical hai — bas ek
+'docs' vector store dekhta hai, doosra 'code'. Isliye ye 5 alag app nahi, ek engine hai."</div>
+
+<h3>Tech stack</h3>
+<table>
+<tr><th>Layer</th><th>Kya use kiya</th><th>Kyun</th></tr>
+<tr><td>LLM</td><td>Ollama + qwen2.5:7b</td><td>Local, free, ek command se setup</td></tr>
+<tr><td>Orchestration</td><td>LangChain4j</td><td>Java ka LangChain — tool calling, memory, RAG</td></tr>
+<tr><td>Embeddings</td><td>all-MiniLM-L6-v2 (ONNX)</td><td><strong>JVM ke andar chalta hai</strong> — koi server nahi</td></tr>
+<tr><td>Vector store</td><td>InMemory + JSON file</td><td>Single user ke liye kaafi; Chroma/pgvector overkill</td></tr>
+<tr><td>Speech-to-text</td><td>whisper.cpp (small, multilingual)</td><td>Local binary, Hindi/Hinglish support</td></tr>
+<tr><td>Text-to-speech</td><td>Piper</td><td>Local binary, koi cloud TTS nahi</td></tr>
+<tr><td>Web/API</td><td>Spring Boot 4</td><td>REST + static UI</td></tr>
+</table>
+
+<h2>3. RAG kya hai (simple explanation)</h2>
+<div class="say">"RAG = Retrieval-Augmented Generation. Closed-book exam vs open-book exam socho.
+Normal LLM closed-book hai — sirf training ka yaad hai, mere documents nahi jaanta. RAG usko
+open-book bana deta hai: sawaal aane pe main related paragraphs apne documents se dhoond ke LLM ko
+dikha deta hoon, phir wo unko padh ke jawaab deta hai."</div>
+
+<p><strong>Technical steps:</strong></p>
+<ol>
+  <li>Document ko chhote chunks mein todo (500 chars, 50 overlap)</li>
+  <li>Har chunk ko embedding model se vector (numbers) mein badlo — meaning capture hota hai</li>
+  <li>Vectors JSON file mein store karo (mera chhota vector DB)</li>
+  <li>Sawaal aaye to usko bhi vector banao, cosine similarity se similar chunks dhoondo</li>
+  <li>Wo chunks LLM ko prompt mein do: "ye rahe excerpts, isi se jawaab do"</li>
+</ol>
+
+<p class="muted"><strong>Agar poochhe "embedding bhi local hai?":</strong> Haan — all-MiniLM ONNX model
+seedha JVM ke andar chalta hai, Ollama ko bhi call nahi karta. Ek moving part kam.</p>
+
+<h2>4. Saare tools (8 tools)</h2>
+<table>
+<tr><th>Tool</th><th>Kaam</th><th>Setup chahiye?</th></tr>
+<tr><td><code>searchDocs</code></td><td>User ke PDF/notes/markdown mein search</td><td>Nahi</td></tr>
+<tr><td><code>searchCode</code></td><td>Ingested codebase mein search</td><td>Nahi</td></tr>
+<tr><td><code>listDocuments</code></td><td>Kaunse documents ingested hain (+ latest ka content)</td><td>Nahi</td></tr>
+<tr><td><code>readFile</code> / <code>listFiles</code></td><td>Filesystem read (<strong>sandboxed</strong>)</td><td>Nahi</td></tr>
+<tr><td><code>searchWikidata</code></td><td>Structured facts — "latest version of X" ke liye best</td><td>Nahi, no key</td></tr>
+<tr><td><code>searchWikipedia</code></td><td>Encyclopedic context</td><td>Nahi, no key</td></tr>
+<tr><td><code>searchWeb</code></td><td>Live web (Marginalia); Tavily optional</td><td>Nahi, no key</td></tr>
+<tr><td><code>getWeather</code></td><td>Current weather + forecast (Open-Meteo)</td><td>Nahi, no key</td></tr>
+</table>
+
+<h3>Fallback chain — code mein, prompt mein nahi</h3>
+<pre>searchWeb → Tavily (agar key hai) → Marginalia → Wikidata → Wikipedia</pre>
+<div class="say">"Ye chain maine <strong>code mein</strong> likhi hai, prompt mein nahi. Kyunki maine
+test karke dekha — model ek tool call karta hai, uska 'not configured' message padhta hai, aur wahin
+ruk jaata hai. Dusra tool call kabhi nahi karta. Ye chhote models ki known limitation hai:
+<strong>single-hop tool use</strong>. Prompt mein likhne se fix nahi hua, isliye deterministic
+fallback code mein daali."</div>
+
+<h3>Security: do alag trust levels</h3>
+<div class="say">"<code>readFile</code>/<code>listFiles</code> — jo <strong>LLM khud call karta hai</strong> — project
+folder tak sandboxed hain, kyunki koi ingested document mein prompt-injection ho sakta hai. Lekin
+<code>/api/ingest/path</code> — jo <strong>insaan khud</strong> path type karke call karta hai — sandboxed
+nahi, kyunki wo same trust level hai jaise file text editor mein kholna. Iske badle server sirf
+<code>127.0.0.1</code> pe bind hota hai, poore network pe nahi."</div>
+
+<h2>5. Voice — speech in aur speech out</h2>
+<div class="say">"Voice koi alag AI pipeline nahi hai — sirf <strong>input/output wrapper</strong> hai.
+Mic se audio → whisper.cpp (local STT) → wahi text usi assistant ko → jawaab → Piper (local TTS) →
+speaker. Agent ka core logic bilkul nahi badalta."</div>
+<ul>
+  <li><strong>Model:</strong> whisper <code>small</code> multilingual — Hindi/Hinglish aur Indian accent handle karta hai</li>
+  <li><strong>Language:</strong> <code>auto</code> — whisper ka default <code>en</code> hai, isko explicitly set karna padta hai</li>
+  <li><strong>UI:</strong> har reply pe 🔊 button, aur sidebar mein "read replies aloud automatically" toggle</li>
+</ul>
+
+<h2>6. UI features</h2>
+<ul>
+  <li><strong>Recent chats</strong> — localStorage mein save, click karke resume; server-side memory bhi continue hoti hai (sirf transcript replay nahi)</li>
+  <li><strong>In-chat ingestion</strong> — 📎 button se menu: upload file / docs folder / code folder / koi bhi path</li>
+  <li><strong>Live model switcher</strong> — header dropdown, bina restart ke model badlo, chat memory bhi carry over hoti hai</li>
+  <li><strong>Markdown rendering</strong>, auto-grow composer, typing indicator, copy button, read-aloud</li>
+  <li><strong>Document delete</strong> — <code>DELETE /api/documents?name=…</code></li>
+</ul>
+
+<div class="say">"Model switching ke liye real refactor karna pada — LangChain4j ka AiServices
+build time pe ChatModel bake kar deta hai, koi <code>setModel()</code> nahi hai. Isliye
+<code>AssistantService</code> proxy ko rebuild karta hai, lekin chat memory apne khud ke map mein
+rakhta hai jo har rebuild ko same lambda se milti hai — isliye model badalne pe history nahi jaati."</div>
+
+<h2>7. Real bugs jo mile aur fix kiye</h2>
+<p class="muted">Ye section sabse zyada value deta hai interview mein — dikhata hai ki tumne sirf
+tutorial follow nahi kiya, actually debug kiya. Har bug ka <strong>symptom → root cause → fix</strong> yaad rakho.</p>
+
+<div class="bug">
+<h3>Bug 1 — Code ingestion 0 files (apne hi naam ki wajah se)</h3>
+<p><strong>Symptom:</strong> Code ingest karne pe 0 files. <strong>Root cause:</strong> Ignore-folder check
+poore <em>absolute path</em> pe chal raha tha, aur default folder ka naam hi <code>data/code</code> tha —
+<code>data</code> IGNORED_DIRS mein tha, isliye har file skip. <strong>Fix:</strong> path ko root ke
+relative karke check kiya.</p>
+</div>
+
+<div class="bug">
+<h3>Bug 2 — Spring Boot 4 vs LangChain4j: do alag Jackson</h3>
+<p><strong>Symptom:</strong> <code>Type definition error: JsonNode</code>. <strong>Root cause:</strong> Spring Boot 4
+naya <strong>Jackson 3</strong> (<code>tools.jackson</code>) use karta hai, LangChain4j purana
+<strong>Jackson 2</strong> (<code>com.fasterxml</code>). RestClient ka auto-converter Jackson-2 ka
+JsonNode samajh hi nahi paata. <strong>Fix:</strong> response ko raw String lo, apne ObjectMapper se parse karo.</p>
+</div>
+
+<div class="bug">
+<h3>Bug 3 — Wikipedia ka galat endpoint</h3>
+<p><strong>Symptom:</strong> "latest Java version" pe kuch nahi milta. <strong>Root cause:</strong>
+<code>opensearch</code> endpoint sirf <em>title prefix</em> match karta hai — ye query zero results deti hai.
+<strong>Fix:</strong> <code>action=query&amp;list=search</code> (real full-text search) use kiya.</p>
+</div>
+
+<div class="bug">
+<h3>Bug 4 — Spring UriBuilder ne SPARQL kha liya</h3>
+<p><strong>Symptom:</strong> Wikidata tool silently fail. <strong>Root cause:</strong> UriBuilder <code>{...}</code>
+ko URI template placeholder samajhta hai, aur SPARQL braces se bhara hota hai →
+<code>"Not enough variable values available to expand"</code>. <strong>Fix:</strong> pre-encoded
+<code>java.net.URI</code> khud banaya.</p>
+</div>
+
+<div class="bug">
+<h3>Bug 5 — Voice: browser WAV record kar hi nahi sakta</h3>
+<p><strong>Symptom:</strong> Har recording pe <code>failed to read audio file</code>. <strong>Root cause:</strong>
+MediaRecorder sirf <strong>webm/opus</strong> deta hai, WAV nahi — aur whisper.cpp webm nahi padh sakta.
+<strong>Fix:</strong> ffmpeg install nahi tha (aur root access bhi nahi), isliye browser mein hi Web Audio API
+se decode karke, 16kHz mono resample karke, khud WAV bytes encode kiye.</p>
+</div>
+
+<div class="bug">
+<h3>Bug 6 — Intel iGPU chup-chaap output corrupt kar raha tha</h3>
+<p><strong>Symptom:</strong> "What is 2+2?" ka jawaab <code>[]([]([]([]...</code> infinite. <strong>Root cause:</strong>
+Maine speed test ke liye <code>OLLAMA_IGPU_ENABLE=1</code> kiya tha. <code>ollama ps</code> "100% GPU" dikha
+raha tha, lekin Vulkan path generation corrupt kar raha tha. <strong>Fix:</strong> CPU-only par wapas.
+<strong>Lesson:</strong> maine sirf <em>latency</em> measure ki thi, <em>output quality</em> nahi — speed benchmark
+is failure ko kabhi nahi pakadta.</p>
+</div>
+
+<div class="bug">
+<h3>Bug 7 — min-score chup-chaap valid matches drop kar raha tha</h3>
+<p><strong>Symptom:</strong> "documents mein hai lekin bolta hai nahi mila". <strong>Root cause:</strong>
+<code>min-score 0.6</code>, lekin all-MiniLM genuinely relevant chunks ko 0.4–0.6 deta hai. Valid matches
+silently filter ho rahe the. <strong>Fix:</strong> 0.35 kiya, aur ab tool <em>log karta hai</em> ki best rejected
+score kya tha — taaki agli baar ye bug dikhe, chhupe nahi.</p>
+</div>
+
+<div class="bug">
+<h3>Bug 8 — Model raw JSON leak kar raha tha</h3>
+<p><strong>Symptom:</strong> "hi" bolne pe jawaab aaya <code>{"name": "listDocuments", "parameters": {}}</code>.
+<strong>Root cause:</strong> llama3.2 tool-call blob ko <em>text ki tarah print</em> kar raha tha — real tool call
+nahi tha. Prompt mein mana karne se bhi nahi ruka (3 mein se 3 baar hua). <strong>Fix:</strong> code mein
+filter + ek retry. Aur retry karte waqt failed exchange ko memory se hata bhi diya, warna model apni hi
+galti pe maafi maangne lagta tha ("It seems like I made a mistake") — jo internal machinery user ko dikha deta hai.</p>
+</div>
+
+<h2>8. Performance findings (real measurements)</h2>
+<p class="muted">Ye numbers actual measure kiye hain — interview mein "maine measure kiya" bolna bahut strong hai.</p>
+<table>
+<tr><th>Task (warm model)</th><th>llama3.2 (3B)</th><th>qwen2.5:7b</th></tr>
+<tr><td>Greeting</td><td>2+ min, raw JSON leak</td><td><strong>3.8s</strong>, clean</td></tr>
+<tr><td>Follow-up (memory)</td><td>galat, rambling</td><td><strong>7.6s</strong>, correct</td></tr>
+<tr><td>"Write Java code to add 2 numbers"</td><td>2m 02s</td><td><strong>35s</strong></td></tr>
+</table>
+
+<div class="say">"Sabse counter-intuitive finding: <strong>chhota model actually slow nikla</strong>.
+Raw token rate mein 3B tez hai (7.5 vs 3.7 tok/s), lekin wo bekaar ke tool calls pe
+<strong>extra round-trips</strong> kharch karta hai — Ollama ke logs mein maine dekha ek sawaal pe do model
+calls ho rahe the. Isliye asli metric tokens-per-second nahi, <strong>round-trips per answer</strong> hai."</div>
+
+<h3>Aur kya seekha</h3>
+<ul>
+  <li><strong>Cold start</strong> sabse bada cost tha — Ollama 5 min baad model unload kar deta hai, phir har
+      sawaal 1–2 min reload pe kharch karta tha. <code>OLLAMA_KEEP_ALIVE</code> se fix.</li>
+  <li>Lekin sirf keep-alive lagane se <strong>naya problem</strong> aaya — dono models RAM mein pin ho gaye (7.7GB),
+      machine choke ho gayi. <code>OLLAMA_MAX_LOADED_MODELS=1</code> bhi lagana zaroori tha.</li>
+  <li><strong>Prompt overhead:</strong> system prompt + 8 tool descriptions = <strong>2066 tokens</strong>, yaani
+      4096 context ka aadha hissa har request pe. Trim karke ~1000 kiya.</li>
+  <li><strong>RAM ≠ speed:</strong> 2.4GB free karne se sirf 8% farak pada. RAM <em>model load</em> ko affect karti
+      hai, <em>generation speed</em> ko nahi — wo CPU-bound hai.</li>
+</ul>
+
+<h2>9. Live demo flow</h2>
+<ol>
+  <li><code>GET /api/health</code> — Ollama reachable, model, voice, web search sab green</li>
+  <li>📎 se koi document upload karo → "indexed" confirmation</li>
+  <li>Us document ke baare mein poochho → exact line milti hai (proof: guess nahi, retrieve kar raha hai)</li>
+  <li>"What is the latest Java LTS version?" → Wikidata se live data, purani memory se nahi</li>
+  <li>"today weather in gurugram" → real current temperature</li>
+  <li>Header dropdown se model switch karo → bina restart ke, chat history bani rehti hai</li>
+  <li>Kisi reply pe 🔊 click karo → wo bol ke sunata hai</li>
+  <li>Sidebar mein "New conversation", phir purani chat pe wapas click karo → resume ho jaati hai</li>
+</ol>
+<div class="warn"><strong>Demo tip:</strong> CPU-only pe har jawaab 30–100 second leta hai. Interview se
+pehle app start karke ek dummy sawaal pooch lo taaki model RAM mein warm ho jaaye — warna pehla jawaab
+2 minute lega aur awkward lagega.</div>
+
+<h2>10. Anticipated interview questions</h2>
+<table>
+<tr><th>Sawaal</th><th>Jawaab</th></tr>
+<tr><td>Ye fully offline hai?</td><td>LLM, embeddings, vector store, voice — sab local. Lekin Wikidata/Wikipedia/web/weather internet call karte hain. Isliye <strong>local-first</strong> bolo. Ye conscious trade-off tha: accuracy ke liye controlled exception.</td></tr>
+<tr><td>Cloud API kyun nahi?</td><td>Privacy (confidential docs/code kisi server pe nahi jaate) aur cost (per-request charge nahi).</td></tr>
+<tr><td>Tool calling kaise kaam karta hai?</td><td>LLM ko tool descriptions dikhte hain, wo khud decide karta hai. Main if-else route nahi karta.</td></tr>
+<tr><td>Model kaise badloge?</td><td>Header dropdown se live, ya <code>application.yml</code> mein ek line. Restart nahi chahiye.</td></tr>
+<tr><td>Production mein scale kaise?</td><td>Vector store ko pgvector/Chroma mein swap, GPU wali machine, aur per-user session isolation.</td></tr>
+<tr><td>Multiple users?</td><td>Haan — har session ka apna <code>sessionId</code> aur memory hai.</td></tr>
+<tr><td>Sabse bada challenge?</td><td>Bug 6 (iGPU corruption) ya Bug 8 (JSON leak) sunao — dono mein root cause non-obvious tha aur prompt se fix nahi hua, code se hua.</td></tr>
+<tr><td>Agla step kya?</td><td>Agentic: write-capable tools (sandboxed workspace), multi-step planning loop, long-term memory. Abhi sab tools read-only hain.</td></tr>
+<tr><td>Testing kaise ki?</td><td>Har feature app ke through end-to-end verify kiya — logs se confirm kiya ki sahi tool fire hua, sirf output dekh ke maan nahi liya.</td></tr>
+</table>
+
+<h2>Bottom line — ek line yaad rakho</h2>
+<div class="say">"Ek model, ek agent, aath tools, alag-alag data — voice sirf input/output wrapper hai
+upar se, aur internet sirf wahan touch karta hoon jahan local data se jawaab mil hi nahi sakta."</div>
+
+</body>
+</html>

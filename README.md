@@ -18,6 +18,11 @@ Model switcher, in-chat ingestion menu, document Q&A grounded in an uploaded fil
 read-aloud, and a current-facts lookup — all running locally. Recorded against a fictional sample
 document, and sped up: on CPU-only hardware each answer takes roughly 30-100 seconds.
 
+> **Walkthrough:** [`INTERVIEW_GUIDE.md`](INTERVIEW_GUIDE.md) explains the whole system in plain
+> Hinglish — architecture, every tool, the bugs hit along the way and how each was diagnosed, and
+> measured performance numbers. Also available as a printable
+> [6-page PDF](docs/CHINTU-Interview-Guide.pdf).
+
 ---
 
 ## Why this exists
