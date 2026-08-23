@@ -10,6 +10,16 @@ leaves localhost.
 
 ---
 
+## Demo
+
+![CHINTU demo](docs/chintu-demo.gif)
+
+Model switcher, in-chat ingestion menu, document Q&A grounded in an uploaded file, per-message
+read-aloud, and a current-facts lookup — all running locally. Recorded against a fictional sample
+document, and sped up: on CPU-only hardware each answer takes roughly 30-100 seconds.
+
+---
+
 ## Why this exists
 
 Most "AI assistant" tutorials wire a Java app to a cloud API (OpenAI, Claude, Gemini). That's fine
